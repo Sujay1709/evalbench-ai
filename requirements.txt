@@ -1,0 +1,44 @@
+# EvalBench runtime dependencies
+#
+# Install with:
+#   python -m pip install -r requirements.txt
+#
+# Flask is the single web framework for this project. FastAPI is intentionally
+# omitted because running two web frameworks would add complexity without
+# improving the first portfolio release.
+
+# Web application and production server
+Flask>=3.1,<4.0
+gunicorn>=23.0,<24.0
+
+# Configuration and validation
+pydantic>=2.11,<3.0
+pydantic-settings>=2.10,<3.0
+python-dotenv>=1.1,<2.0
+PyYAML>=6.0,<7.0
+jsonschema>=4.24,<5.0
+
+# Persistence and migrations
+SQLAlchemy>=2.0,<3.0
+Flask-SQLAlchemy>=3.1,<4.0
+Flask-Migrate>=4.1,<5.0
+alembic>=1.16,<2.0
+
+# Evaluation statistics and metrics
+numpy>=2.2,<3.0
+scipy>=1.15,<2.0
+scikit-learn>=1.6,<2.0
+
+# LLM access, tracing, retries, and HTTP
+openai>=1.99,<3.0
+langsmith>=0.4,<1.0
+llama-index-core>=0.14.23,<0.15
+httpx>=0.28,<1.0
+tenacity>=9.1,<10.0
+
+# Durable background evaluation workflows
+inngest>=0.5.19,<0.6
+
+# Command-line interface and readable reports
+typer>=0.16,<1.0
+rich>=14.0,<15.0
