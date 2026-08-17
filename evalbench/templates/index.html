@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}EvalBench · LLM quality you can defend{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <div>
+      <p class="eyebrow">LLM evaluation and regression testing</p>
+      <h1>Replace prompt intuition with evidence.</h1>
+      <p class="hero-copy">
+        EvalBench runs versioned automotive QA cases through reproducible scorers,
+        preserves every result, and makes regressions inspectable.
+      </p>
+    </div>
+    <div class="hero-panel" aria-label="Current architecture">
+      <span>Dataset</span><strong>→</strong><span>Provider</span><strong>→</strong><span>Scorers</span>
+      <p>Content hashes + cached responses + append-only runs</p>
+    </div>
+  </section>
+
+  <section class="metrics" aria-label="Project capabilities">
+    <article><strong>2</strong><span>deterministic scorers</span></article>
+    <article><strong>100%</strong><span>offline reproducibility</span></article>
+    <article><strong>$0</strong><span>API cost for this phase</span></article>
+  </section>
+
+  <section class="runs-section">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Experiment history</p>
+        <h2>Recent evaluation runs</h2>
+      </div>
+      <code>python -m evalbench.cli run</code>
+    </div>
+
+    {% if runs %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Run</th>
+              <th>Dataset</th>
+              <th>Prompt</th>
+              <th>Status</th>
+              <th>Pass rate</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for run in runs %}
+              <tr>
+                <td><a href="{{ url_for('web.run_detail', run_id=run.id) }}">{{ run.id[:8] }}</a></td>
+                <td>{{ run.dataset_name }} · {{ run.dataset_version }}</td>
+                <td>{{ run.prompt_id }} · {{ run.prompt_version }}</td>
+                <td><span class="status status-{{ run.status }}">{{ run.status }}</span></td>
+                <td>{{ "%.0f%%"|format(run.pass_rate * 100) }}</td>
+                <td>{{ run.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <h3>No runs yet</h3>
+        <p>Run the offline benchmark from the CLI. Results will appear here.</p>
+        <code>python -m evalbench.cli run</code>
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,8 @@
+-r requirements.txt
+
+# Test and coverage tooling
+pytest>=8.0,<10.0
+pytest-cov>=6.0,<8.0
+
+# Static analysis and formatting
+ruff>=0.12,<1.0

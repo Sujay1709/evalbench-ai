@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Run {{ run.id[:8] }} · EvalBench{% endblock %}
+
+{% block content %}
+  <section class="detail-header">
+    <a class="back-link" href="{{ url_for('web.index') }}">← All runs</a>
+    <p class="eyebrow">Evaluation run</p>
+    <h1>{{ run.id }}</h1>
+    <div class="detail-grid">
+      <div><span>Status</span><strong>{{ run.status }}</strong></div>
+      <div><span>Pass rate</span><strong>{{ "%.0f%%"|format(run.pass_rate * 100) }}</strong></div>
+      <div><span>Mean score</span><strong>{{ "%.3f"|format(run.mean_score) }}</strong></div>
+      <div><span>Dataset hash</span><strong title="{{ run.dataset_hash }}">{{ run.dataset_hash[:12] }}</strong></div>
+    </div>
+  </section>
+
+  <section class="results-list">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Per-example evidence</p>
+        <h2>Results</h2>
+      </div>
+    </div>
+
+    {% for result in run.results %}
+      <article class="result-card">
+        <div class="result-card-heading">
+          <h3>{{ result.example_id }}</h3>
+          <span class="status {{ 'status-completed' if result.passed else 'status-failed' }}">
+            {{ 'pass' if result.passed else 'fail' }}
+          </span>
+        </div>
+        <dl>
+          <div><dt>Input</dt><dd><pre>{{ result.input_json | tojson(indent=2) }}</pre></dd></div>
+          <div><dt>Output</dt><dd><pre>{{ result.output_text }}</pre></dd></div>
+          <div><dt>Score evidence</dt><dd><pre>{{ result.scorer_details | tojson(indent=2) }}</pre></dd></div>
+        </dl>
+        <p class="result-meta">
+          Score {{ "%.3f"|format(result.score) }} ·
+          {{ "cache hit" if result.cache_hit else "generated" }} ·
+          {{ "%.2f"|format(result.latency_ms) }} ms
+        </p>
+      </article>
+    {% endfor %}
+  </section>
+{% endblock %}

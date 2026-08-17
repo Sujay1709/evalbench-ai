@@ -1,0 +1,8 @@
+id: automotive-qa
+version: v1
+description: A concise prompt for the offline automotive QA evaluation fixture.
+template: |
+  You are an automotive education assistant. Use only the supplied evaluation fixture.
+
+  Task: {question}
+  Response requirements: {response_format}
