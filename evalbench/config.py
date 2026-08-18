@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -16,8 +16,13 @@ class Settings(BaseSettings):
     database_url: str = Field(default=f"sqlite:///{DEFAULT_DATABASE_PATH}")
     demo_read_only: bool = False
     log_level: str = "INFO"
-    llm_provider: str = "mock"
+    llm_provider: Literal["mock", "openai"] = "mock"
     max_run_cost_usd: float = Field(default=1.0, ge=0)
+    openai_api_key: SecretStr | None = None
+    openai_model: str = "gpt-5.6-luna"
+    openai_timeout_seconds: float = Field(default=30.0, gt=0)
+    openai_max_retries: int = Field(default=2, ge=0, le=10)
+    openai_max_output_tokens: int = Field(default=128, ge=16, le=4096)
 
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",
@@ -29,6 +34,10 @@ class Settings(BaseSettings):
     def validate_production_secret(self) -> "Settings":
         if self.app_env == "production" and self.secret_key == "development-only-secret":
             raise ValueError("Production requires a non-default SECRET_KEY")
+        if self.llm_provider == "openai" and (
+            self.openai_api_key is None or not self.openai_api_key.get_secret_value().strip()
+        ):
+            raise ValueError("LLM_PROVIDER=openai requires OPENAI_API_KEY")
         return self
 
     def to_flask_config(self) -> dict:
@@ -45,4 +54,5 @@ class Settings(BaseSettings):
             "LOG_LEVEL": self.log_level,
             "LLM_PROVIDER": self.llm_provider,
             "MAX_RUN_COST_USD": self.max_run_cost_usd,
+            "OPENAI_MODEL": self.openai_model,
         }

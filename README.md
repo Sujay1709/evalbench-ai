@@ -9,7 +9,7 @@
 
 EvalBench turns datasets, prompt versions, provider settings, and scoring rules into traceable evaluation runs. It stores per-example evidence, reuses identical responses through content-addressed caching, and makes regressions inspectable from a Flask dashboard.
 
-The current evaluation vertical slice is deliberately offline and deterministic. It proves that the infrastructure works without API keys or paid model calls. Phase 2 now includes pinned, attributed samples from SQuAD v2 and HotpotQA; automated dataset importers, live provider adapters, retrieval-augmented generation (RAG), and statistical model comparisons remain planned work—not features claimed as complete.
+The default evaluation path is deliberately offline and deterministic. It proves that the infrastructure works without API keys or paid model calls. Phase 2 now adds an opt-in OpenAI Responses API adapter alongside pinned SQuAD v2 and HotpotQA samples. The adapter is contract-tested but has not been credentialed smoke-tested; automated dataset importers, RAG, and statistical model comparisons remain planned work.
 
 ## Why this project exists
 
@@ -30,13 +30,13 @@ EvalBench is designed around those questions. It emphasizes measurable behavior,
 | Versioned evaluation data | Validated automotive JSONL examples with a dataset content hash |
 | External dataset provenance | Eight SQuAD v2 and HotpotQA fixtures pinned to source rows and repository revisions |
 | Versioned prompts | YAML prompt registry with variable validation and a prompt content hash |
-| Provider abstraction | Framework-independent provider protocol and deterministic offline provider |
+| Provider abstraction | Offline mock plus an opt-in, contract-tested OpenAI Responses API adapter |
 | Deterministic scoring | Exact match, token F1, answerability, and JSON Schema with readable evidence |
 | Reproducibility | Dataset, prompt, provider, and settings hashes are stored with each run |
 | Response caching | Identical requests are served from a content-addressed SQLite cache |
 | Audit trail | Append-only run summaries and per-example results |
 | Web observability | Run dashboard, run-detail view, liveness, and database readiness routes |
-| Local quality gate | Twenty automated tests and Ruff static analysis pass locally |
+| Local quality gate | Twenty-six automated tests and Ruff static analysis pass locally |
 
 ## Architecture pipeline
 
@@ -50,7 +50,7 @@ flowchart LR
     C -- Yes --> O["Cached model output"]
     C -- No --> S["Provider protocol"]
     S --> M["Offline mock provider"]
-    S -. "Phase 2" .-> L["Live LLM provider"]
+    S --> L["Opt-in OpenAI provider"]
     M --> W["Cache response"]
     L --> W
     W --> O
@@ -109,8 +109,8 @@ evalbench/
 ├── evalbench/
 │   ├── datasets/             # Validation, loading, and hashing
 │   ├── prompts/              # Prompt registry and rendering
-│   ├── providers/            # Provider protocol and offline provider
-│   ├── scorers/              # Exact-match and JSON Schema scoring
+│   ├── providers/            # Mock and opt-in OpenAI Responses adapters
+│   ├── scorers/              # Exact match, token F1, answerability, and schema
 │   ├── services/             # Evaluation orchestration
 │   ├── templates/            # Dashboard and run-detail pages
 │   ├── models.py             # Runs, results, and response cache
@@ -160,13 +160,36 @@ python -m evalbench.cli run
 
 The first run generates deterministic offline responses. The second run should mark every response as coming from the cache while producing the same scores and content hashes.
 
+### Optional live-provider run
+
+Set the following values only in the untracked local `.env` file:
+
+```dotenv
+LLM_PROVIDER=openai
+OPENAI_API_KEY=replace-with-a-local-development-key
+OPENAI_MODEL=gpt-5.6-luna
+OPENAI_TIMEOUT_SECONDS=30
+OPENAI_MAX_RETRIES=2
+OPENAI_MAX_OUTPUT_TOKENS=128
+```
+
+Then run one of the pinned samples:
+
+```bash
+python -m evalbench.cli run \
+  --dataset datasets/squad_v2/sample_v1.jsonl \
+  --prompt prompts/grounded_qa/v1.yaml
+```
+
+This is an opt-in paid integration. The public demo must keep `LLM_PROVIDER=mock`, and the live command should only be run after confirming the selected model, account access, and cost budget.
+
 ## What has actually been tested
 
 The following checks were run locally on August 17, 2026:
 
 | Check | Result |
 |---|---|
-| `pytest` | 20 tests passed |
+| `pytest` | 26 tests passed |
 | `ruff check .` | Passed |
 | Database migration | Upgrade completed and all three application tables were created |
 | First CLI evaluation | 5 of 5 deterministic fixtures passed; all responses generated |
@@ -255,7 +278,7 @@ flowchart LR
 
 1. **Sample validation — complete:** map small pinned SQuAD v2 and HotpotQA samples into EvalBench, record provenance, and test the normalized examples.
 2. **Scorer validation — complete:** token F1 and answerability cover punctuation, aliases, partial overlap, empty answers, and explicit abstention.
-3. **Live provider comparison:** evaluate a fixed holdout against at least two provider/model configurations with caching, retry limits, latency, and cost capture.
+3. **Live provider adapter — contract complete:** the Responses API adapter has bounded SDK retries, timeout/error classification, token metadata, and cache-safe model identity. A credentialed smoke test and multi-model comparison remain.
 4. **RAG evaluation:** use LlamaIndex only as the retrieval layer, log retrieved evidence, and score both final answers and retrieval quality.
 5. **Statistical regression gate:** compare against a stored baseline using paired examples and uncertainty estimates; fail CI only when a documented threshold is crossed.
 
@@ -295,14 +318,14 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
 - Content-addressed caching prevents identical live requests from being billed twice.
 - Historical evaluation runs are append-only for auditability.
 - A public demo must never expose an unauthenticated paid generation endpoint.
-- Live adapters should implement timeouts, bounded retries, rate limits, and failure classification.
+- The OpenAI adapter uses timeouts, bounded SDK retries, failure classification, `store=False`, and token-usage metadata.
 - External dataset terms, licenses, revisions, and provenance should be recorded before redistribution.
 
 ## Roadmap
 
 - [x] **Phase 0:** Flask foundation, typed settings, persistence, migrations, health checks, and tests
 - [x] **Phase 1:** versioned automotive data, prompt registry, provider protocol, deterministic scoring, persisted runs, and response caching
-- [ ] **Phase 2 — in progress:** attributed Hugging Face samples and QA scorers are complete; dataset adapters and opt-in live provider integration remain
+- [ ] **Phase 2 — in progress:** HF samples, QA scorers, and the opt-in provider adapter are complete; importer, credentialed smoke test, and split policies remain
 - [ ] **Phase 3:** Inngest background execution, retries, and operational failure visibility
 - [ ] **Phase 4:** baseline comparison dashboard, latency/cost analysis, and retrieval metrics
 - [ ] **Phase 5:** calibrated LLM judge and human-reviewed evaluation subset
@@ -313,7 +336,7 @@ See [`plan.md`](plan.md) for completion criteria and [`Deploy.md`](Deploy.md) fo
 
 ## Known limitations
 
-- The current provider is deterministic and offline; it does not measure real-model intelligence.
+- The default provider is deterministic and offline; the OpenAI adapter is contract-tested but has not yet been credentialed smoke-tested.
 - The repository contains five automotive fixtures and eight external sample fixtures, which are appropriate for infrastructure verification but too small for model selection.
 - Exact match, token F1, answerability, and JSON Schema are implemented; retrieval and citation metrics remain planned.
 - Docker and Render execution have not yet been smoke-tested.
