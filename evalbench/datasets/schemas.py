@@ -1,7 +1,9 @@
 from datetime import date
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AnyHttpUrl, BaseModel, Field, UrlConstraints, model_validator
+
+HttpsUrl = Annotated[AnyHttpUrl, UrlConstraints(allowed_schemes=["https"])]
 
 
 class ScorerSpec(BaseModel):
@@ -38,7 +40,7 @@ class DatasetProvenance(BaseModel):
     source_id: str = Field(min_length=1)
     revision: str = Field(pattern=r"^[0-9a-f]{40}$")
     sample_offset: int = Field(ge=0)
-    source_url: str = Field(pattern=r"^https://")
+    source_url: HttpsUrl
     license: str = Field(min_length=1)
     retrieved_at: date
 

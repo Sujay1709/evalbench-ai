@@ -36,7 +36,7 @@ EvalBench is designed around those questions. It emphasizes measurable behavior,
 | Response caching | Identical requests are served from a content-addressed SQLite cache |
 | Audit trail | Append-only run summaries and per-example results |
 | Web observability | Run dashboard, run-detail view, liveness, and database readiness routes |
-| Local quality gate | Eighteen automated tests and Ruff static analysis pass locally |
+| Local quality gate | Twenty automated tests and Ruff static analysis pass locally |
 
 ## Architecture pipeline
 
@@ -166,7 +166,7 @@ The following checks were run locally on August 17, 2026:
 
 | Check | Result |
 |---|---|
-| `pytest` | 18 tests passed |
+| `pytest` | 20 tests passed |
 | `ruff check .` | Passed |
 | Database migration | Upgrade completed and all three application tables were created |
 | First CLI evaluation | 5 of 5 deterministic fixtures passed; all responses generated |
