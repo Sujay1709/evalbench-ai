@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -18,6 +19,20 @@ class ScorerSpec(BaseModel):
         return self
 
 
+class DatasetProvenance(BaseModel):
+    """Identity and license information for one externally sourced example."""
+
+    dataset_id: str = Field(min_length=1)
+    config: str = Field(min_length=1)
+    split: str = Field(min_length=1)
+    source_id: str = Field(min_length=1)
+    revision: str = Field(pattern=r"^[0-9a-f]{40}$")
+    sample_offset: int = Field(ge=0)
+    source_url: str = Field(pattern=r"^https://")
+    license: str = Field(min_length=1)
+    retrieved_at: date
+
+
 class EvaluationExample(BaseModel):
     id: str = Field(min_length=1, max_length=120)
     input: dict[str, Any]
@@ -26,3 +41,4 @@ class EvaluationExample(BaseModel):
     tags: list[str] = Field(default_factory=list)
     difficulty: Literal["easy", "medium", "hard"] = "medium"
     split: Literal["development", "holdout"] = "development"
+    provenance: DatasetProvenance | None = None

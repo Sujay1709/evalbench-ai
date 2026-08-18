@@ -1,0 +1,12 @@
+id: grounded-qa
+version: v1
+description: A leakage-safe prompt for grounded QA samples with explicit abstention.
+template: |
+  You are a grounded question-answering assistant. Use only the supplied context.
+  If the context does not contain enough evidence, answer exactly: insufficient evidence
+
+  Context:
+  {context}
+
+  Question: {question}
+  Response requirements: {response_format}

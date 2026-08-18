@@ -9,7 +9,7 @@
 
 EvalBench turns datasets, prompt versions, provider settings, and scoring rules into traceable evaluation runs. It stores per-example evidence, reuses identical responses through content-addressed caching, and makes regressions inspectable from a Flask dashboard.
 
-The current automotive QA vertical slice is deliberately offline and deterministic. It proves that the evaluation infrastructure works without API keys or paid model calls. Live provider adapters, Hugging Face dataset importers, retrieval-augmented generation (RAG), and statistical model comparisons are the next milestones—not features claimed as complete.
+The current evaluation vertical slice is deliberately offline and deterministic. It proves that the infrastructure works without API keys or paid model calls. Phase 2 now includes pinned, attributed samples from SQuAD v2 and HotpotQA; automated dataset importers, live provider adapters, retrieval-augmented generation (RAG), and statistical model comparisons remain planned work—not features claimed as complete.
 
 ## Why this project exists
 
@@ -28,6 +28,7 @@ EvalBench is designed around those questions. It emphasizes measurable behavior,
 | Capability | Evidence in the current repository |
 |---|---|
 | Versioned evaluation data | Validated automotive JSONL examples with a dataset content hash |
+| External dataset provenance | Eight SQuAD v2 and HotpotQA fixtures pinned to source rows and repository revisions |
 | Versioned prompts | YAML prompt registry with variable validation and a prompt content hash |
 | Provider abstraction | Framework-independent provider protocol and deterministic offline provider |
 | Deterministic scoring | Exact-match and JSON Schema scorers with readable evidence |
@@ -35,7 +36,7 @@ EvalBench is designed around those questions. It emphasizes measurable behavior,
 | Response caching | Identical requests are served from a content-addressed SQLite cache |
 | Audit trail | Append-only run summaries and per-example results |
 | Web observability | Run dashboard, run-detail view, liveness, and database readiness routes |
-| Local quality gate | Eight automated tests and Ruff static analysis pass locally |
+| Local quality gate | Twelve automated tests and Ruff static analysis pass locally |
 
 ## Architecture pipeline
 
@@ -103,7 +104,7 @@ sequenceDiagram
 
 ```text
 evalbench/
-├── datasets/automotive_qa/   # Versioned JSONL evaluation examples
+├── datasets/                 # Automotive, SQuAD v2, and HotpotQA JSONL fixtures
 ├── prompts/                  # Versioned YAML prompt definitions
 ├── evalbench/
 │   ├── datasets/             # Validation, loading, and hashing
@@ -165,7 +166,7 @@ The following checks were run locally on August 17, 2026:
 
 | Check | Result |
 |---|---|
-| `pytest` | 8 tests passed |
+| `pytest` | 12 tests passed |
 | `ruff check .` | Passed |
 | Database migration | Upgrade completed and all three application tables were created |
 | First CLI evaluation | 5 of 5 deterministic fixtures passed; all responses generated |
@@ -203,14 +204,14 @@ Dataset and prompt hashes change when their content changes. That means two runs
 
 ## Real-world evaluation strategy
 
-Yes, EvalBench can be tested with Hugging Face datasets and live reference data. That expansion should happen through explicit dataset adapters rather than passing an arbitrary dataset directly to the LLM.
+Yes, EvalBench can be tested with Hugging Face datasets and live reference data. Small SQuAD v2 and HotpotQA fixtures are now checked in with typed provenance; bulk loading should still happen through explicit dataset adapters rather than passing an arbitrary dataset directly to the LLM. See [`datasets/README.md`](datasets/README.md) for exact commands and sampling limitations.
 
 ### Recommended benchmark ladder
 
 | Source | What it tests | Proposed EvalBench use |
 |---|---|---|
-| [SQuAD v2](https://huggingface.co/datasets/rajpurkar/squad_v2) | Grounded extractive QA plus questions with no answer in the supplied context | Measure exact match, token F1, and correct abstention on a pinned validation sample |
-| [HotpotQA](https://huggingface.co/datasets/hotpotqa/hotpot_qa) | Multi-hop reasoning across multiple context passages with supporting facts | Measure answer quality, supporting-evidence recall, and distractor resistance |
+| [SQuAD v2](https://huggingface.co/datasets/rajpurkar/squad_v2) | Grounded extractive QA plus questions with no answer in the supplied context | Four-row sample added; token F1 and automated import remain planned |
+| [HotpotQA](https://huggingface.co/datasets/hotpotqa/hotpot_qa) | Multi-hop reasoning across multiple context passages with supporting facts | Four-row supporting-fact sample added; full distractor import remains planned |
 | [NHTSA vPIC](https://vpic.nhtsa.dot.gov/api/Home/Index) | Live automotive manufacturer, model, VIN, and vehicle specification data | Create timestamped domain regression cases and test freshness, normalization, and API-failure handling |
 | Curated automotive holdout | Portfolio-specific questions reviewed against authoritative sources | Measure domain accuracy and regression behavior without benchmark contamination |
 
@@ -252,7 +253,7 @@ flowchart LR
 
 ### Five stages before calling it production evidence
 
-1. **Adapter validation:** map a small pinned SQuAD v2 sample into EvalBench and manually inspect the normalized examples.
+1. **Sample validation — complete:** map small pinned SQuAD v2 and HotpotQA samples into EvalBench, record provenance, and test the normalized examples.
 2. **Scorer validation:** add token F1 and answerability scoring, then unit-test edge cases such as punctuation, aliases, and empty answers.
 3. **Live provider comparison:** evaluate a fixed holdout against at least two provider/model configurations with caching, retry limits, latency, and cost capture.
 4. **RAG evaluation:** use LlamaIndex only as the retrieval layer, log retrieved evidence, and score both final answers and retrieval quality.
@@ -301,7 +302,7 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
 
 - [x] **Phase 0:** Flask foundation, typed settings, persistence, migrations, health checks, and tests
 - [x] **Phase 1:** versioned automotive data, prompt registry, provider protocol, deterministic scoring, persisted runs, and response caching
-- [ ] **Phase 2:** Hugging Face adapters, token F1/answerability metrics, and opt-in live provider integration
+- [ ] **Phase 2 — in progress:** attributed Hugging Face samples, dataset adapters, token F1/answerability metrics, and opt-in live provider integration
 - [ ] **Phase 3:** Inngest background execution, retries, and operational failure visibility
 - [ ] **Phase 4:** baseline comparison dashboard, latency/cost analysis, and retrieval metrics
 - [ ] **Phase 5:** calibrated LLM judge and human-reviewed evaluation subset
@@ -313,7 +314,7 @@ See [`plan.md`](plan.md) for completion criteria and [`Deploy.md`](Deploy.md) fo
 ## Known limitations
 
 - The current provider is deterministic and offline; it does not measure real-model intelligence.
-- The seeded dataset contains five automotive fixtures, which is appropriate for infrastructure verification but too small for model selection.
+- The repository contains five automotive fixtures and eight external sample fixtures, which are appropriate for infrastructure verification but too small for model selection.
 - Only exact-match and JSON Schema scoring are implemented today.
 - Docker and Render execution have not yet been smoke-tested.
 - No statistical significance, cost comparison, or human calibration is claimed yet.

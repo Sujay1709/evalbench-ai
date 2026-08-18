@@ -1,6 +1,6 @@
 # EvalBench Project Plan
 
-> **Status: approved on August 15, 2026.** Implementation remains phased, and each phase must satisfy its tests and completion criteria before the next phase begins.
+> **Status: approved on August 15, 2026. Phase 0 and Phase 1 are complete; Phase 2 started on August 17, 2026.** Each phase must satisfy its tests and completion criteria before the next phase begins.
 
 ## 1. Concept
 
@@ -329,6 +329,8 @@ The UI should feel like an engineering instrument rather than a generic admin te
 
 **Build:**
 
+- Pinned, attributed SQuAD v2 and HotpotQA samples normalized into the EvalBench schema.
+- Typed provenance for external dataset identity, source row, revision, split, retrieval date, and license.
 - Optional real-provider adapter behind a protocol.
 - Optional `llama-index-core` adapter for evaluating an automotive RAG pipeline through the same system-under-test protocol.
 - Timeouts, retries with exponential backoff, controlled concurrency, token/cost accounting, and error categories.
