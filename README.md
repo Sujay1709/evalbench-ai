@@ -31,12 +31,12 @@ EvalBench is designed around those questions. It emphasizes measurable behavior,
 | External dataset provenance | Eight SQuAD v2 and HotpotQA fixtures pinned to source rows and repository revisions |
 | Versioned prompts | YAML prompt registry with variable validation and a prompt content hash |
 | Provider abstraction | Framework-independent provider protocol and deterministic offline provider |
-| Deterministic scoring | Exact-match and JSON Schema scorers with readable evidence |
+| Deterministic scoring | Exact match, token F1, answerability, and JSON Schema with readable evidence |
 | Reproducibility | Dataset, prompt, provider, and settings hashes are stored with each run |
 | Response caching | Identical requests are served from a content-addressed SQLite cache |
 | Audit trail | Append-only run summaries and per-example results |
 | Web observability | Run dashboard, run-detail view, liveness, and database readiness routes |
-| Local quality gate | Twelve automated tests and Ruff static analysis pass locally |
+| Local quality gate | Eighteen automated tests and Ruff static analysis pass locally |
 
 ## Architecture pipeline
 
@@ -166,7 +166,7 @@ The following checks were run locally on August 17, 2026:
 
 | Check | Result |
 |---|---|
-| `pytest` | 12 tests passed |
+| `pytest` | 18 tests passed |
 | `ruff check .` | Passed |
 | Database migration | Upgrade completed and all three application tables were created |
 | First CLI evaluation | 5 of 5 deterministic fixtures passed; all responses generated |
@@ -210,8 +210,8 @@ Yes, EvalBench can be tested with Hugging Face datasets and live reference data.
 
 | Source | What it tests | Proposed EvalBench use |
 |---|---|---|
-| [SQuAD v2](https://huggingface.co/datasets/rajpurkar/squad_v2) | Grounded extractive QA plus questions with no answer in the supplied context | Four-row sample added; token F1 and automated import remain planned |
-| [HotpotQA](https://huggingface.co/datasets/hotpotqa/hotpot_qa) | Multi-hop reasoning across multiple context passages with supporting facts | Four-row supporting-fact sample added; full distractor import remains planned |
+| [SQuAD v2](https://huggingface.co/datasets/rajpurkar/squad_v2) | Grounded extractive QA plus questions with no answer in the supplied context | Four-row sample scored with token F1 and answerability; automated import remains planned |
+| [HotpotQA](https://huggingface.co/datasets/hotpotqa/hotpot_qa) | Multi-hop reasoning across multiple context passages with supporting facts | Four-row sample scored with token F1 and answerability; full distractor import remains planned |
 | [NHTSA vPIC](https://vpic.nhtsa.dot.gov/api/Home/Index) | Live automotive manufacturer, model, VIN, and vehicle specification data | Create timestamped domain regression cases and test freshness, normalization, and API-failure handling |
 | Curated automotive holdout | Portfolio-specific questions reviewed against authoritative sources | Measure domain accuracy and regression behavior without benchmark contamination |
 
@@ -254,7 +254,7 @@ flowchart LR
 ### Five stages before calling it production evidence
 
 1. **Sample validation — complete:** map small pinned SQuAD v2 and HotpotQA samples into EvalBench, record provenance, and test the normalized examples.
-2. **Scorer validation:** add token F1 and answerability scoring, then unit-test edge cases such as punctuation, aliases, and empty answers.
+2. **Scorer validation — complete:** token F1 and answerability cover punctuation, aliases, partial overlap, empty answers, and explicit abstention.
 3. **Live provider comparison:** evaluate a fixed holdout against at least two provider/model configurations with caching, retry limits, latency, and cost capture.
 4. **RAG evaluation:** use LlamaIndex only as the retrieval layer, log retrieved evidence, and score both final answers and retrieval quality.
 5. **Statistical regression gate:** compare against a stored baseline using paired examples and uncertainty estimates; fail CI only when a documented threshold is crossed.
@@ -267,8 +267,8 @@ EvalBench uses deterministic scoring whenever a property can be checked directly
 
 - **Exact match:** suitable for normalized labels and short canonical facts.
 - **JSON Schema:** verifies parseability, required fields, types, and structural contracts.
-- **Token F1 — planned:** gives partial credit for overlapping answer spans.
-- **Answerability — planned:** measures whether a model correctly abstains when context lacks an answer.
+- **Token F1:** gives partial credit for overlapping answer spans, supports aliases, and records precision and recall evidence.
+- **Answerability:** measures whether a model answers or correctly abstains when context lacks an answer.
 - **Retrieval metrics — planned:** evaluates whether the right supporting passages were retrieved.
 - **LLM judge — later phase:** reserved for subjective qualities and calibrated against human labels before being trusted.
 
@@ -302,7 +302,7 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
 
 - [x] **Phase 0:** Flask foundation, typed settings, persistence, migrations, health checks, and tests
 - [x] **Phase 1:** versioned automotive data, prompt registry, provider protocol, deterministic scoring, persisted runs, and response caching
-- [ ] **Phase 2 — in progress:** attributed Hugging Face samples, dataset adapters, token F1/answerability metrics, and opt-in live provider integration
+- [ ] **Phase 2 — in progress:** attributed Hugging Face samples and QA scorers are complete; dataset adapters and opt-in live provider integration remain
 - [ ] **Phase 3:** Inngest background execution, retries, and operational failure visibility
 - [ ] **Phase 4:** baseline comparison dashboard, latency/cost analysis, and retrieval metrics
 - [ ] **Phase 5:** calibrated LLM judge and human-reviewed evaluation subset
@@ -315,7 +315,7 @@ See [`plan.md`](plan.md) for completion criteria and [`Deploy.md`](Deploy.md) fo
 
 - The current provider is deterministic and offline; it does not measure real-model intelligence.
 - The repository contains five automotive fixtures and eight external sample fixtures, which are appropriate for infrastructure verification but too small for model selection.
-- Only exact-match and JSON Schema scoring are implemented today.
+- Exact match, token F1, answerability, and JSON Schema are implemented; retrieval and citation metrics remain planned.
 - Docker and Render execution have not yet been smoke-tested.
 - No statistical significance, cost comparison, or human calibration is claimed yet.
 

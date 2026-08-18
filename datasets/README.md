@@ -32,7 +32,7 @@ These commands use the deterministic mock provider. They validate dataset conver
 - Two SQuAD rows are answerable and two require abstention.
 - The compact HotpotQA fixture keeps only the labeled supporting facts. It does not yet preserve distractor passages, so it must not be reported as a full HotpotQA benchmark.
 - Some questions were lightly normalized for punctuation or readability. The original source ID and revision are preserved for comparison.
-- Exact match is currently a transport-level check. Token F1, multiple-answer aliases, answerability scoring, and supporting-fact recall belong to the next Phase 2 slice.
+- Token F1 now supports normalized aliases and partial overlap, while answerability scores explicit abstention separately. Supporting-fact recall remains planned.
 - Gold answers remain in scorer configuration and are never inserted into the rendered prompt.
 
 The future importer should use the Hugging Face `datasets` library in streaming mode, pin revisions, apply deterministic sampling, and emit this same validated schema. Imported bulk data should be cached outside Git unless its license and repository-size impact have been reviewed.
