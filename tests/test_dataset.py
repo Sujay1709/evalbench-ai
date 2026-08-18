@@ -1,6 +1,7 @@
 import pytest
+from pydantic import ValidationError
 
-from evalbench.datasets import load_jsonl
+from evalbench.datasets import DatasetProvenance, load_jsonl
 from tests.conftest import PROJECT_ROOT
 
 
@@ -52,3 +53,19 @@ def test_external_samples_include_pinned_provenance(
 
     assert len(source_ids) == 4
     assert expected_tags <= {tag for example in dataset.examples for tag in example.tags}
+
+
+@pytest.mark.parametrize("source_url", ["https://", "http://example.com/dataset"])
+def test_dataset_provenance_requires_a_complete_https_url(source_url):
+    with pytest.raises(ValidationError):
+        DatasetProvenance(
+            dataset_id="example/dataset",
+            config="default",
+            split="validation",
+            source_id="row-1",
+            revision="a" * 40,
+            sample_offset=0,
+            source_url=source_url,
+            license="CC-BY-SA-4.0",
+            retrieved_at="2026-08-17",
+        )
