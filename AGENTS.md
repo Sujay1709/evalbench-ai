@@ -6,9 +6,9 @@ Build EvalBench as a portfolio-quality, reproducible LLM evaluation and regressi
 
 ## Current scope
 
-- Phase 0: Flask foundation, typed configuration, persistence, health checks, tests, and local tooling.
-- Phase 1: versioned automotive JSONL data, prompt registry, offline provider, deterministic scoring, persisted runs, and response caching.
-- Do not add real model calls, LlamaIndex, LangSmith tracing, or Inngest workflows until their planned phase.
+- Phase 0 and Phase 1 are complete.
+- Phase 2 is active: external dataset provenance, QA scorers, and an opt-in OpenAI provider are implemented; importer and split policies remain.
+- Keep all automated tests offline. Do not add LlamaIndex, LangSmith tracing, or Inngest workflows until their planned slice.
 
 ## Architecture rules
 

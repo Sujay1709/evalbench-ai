@@ -70,8 +70,12 @@ The final `.env.example` should document at least the following variables:
 | `DATABASE_URL` | SQLite development URL | Seeded demo database or managed Postgres URL | Sometimes |
 | `SECRET_KEY` | Developer-generated value | Render-generated value | Yes |
 | `LOG_LEVEL` | `DEBUG` | `INFO` | No |
-| `LLM_PROVIDER` | `mock` | `mock` or `replay` | No |
-| `LLM_API_KEY` | Optional local value | **Do not set for the public demo** | Yes |
+| `LLM_PROVIDER` | `mock` or opt-in `openai` | `mock` | No |
+| `OPENAI_API_KEY` | Optional local value | **Do not set for the public demo** | Yes |
+| `OPENAI_MODEL` | `gpt-5.6-luna` | Unused in mock mode | No |
+| `OPENAI_TIMEOUT_SECONDS` | `30` | Unused in mock mode | No |
+| `OPENAI_MAX_RETRIES` | `2` | Unused in mock mode | No |
+| `OPENAI_MAX_OUTPUT_TOKENS` | `128` | Unused in mock mode | No |
 | `MAX_RUN_COST_USD` | Small local budget | `0` in public demo mode | No |
 | `INNGEST_DEV` | `1` when using the local Dev Server | Unset | No |
 | `INNGEST_EVENT_KEY` | Not needed with the Dev Server | Required only for hosted workflows | Yes |
