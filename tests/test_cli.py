@@ -10,3 +10,4 @@ def test_cli_exposes_run_subcommand():
 
     assert result.exit_code == 0
     assert "run" in result.output
+    assert "import-hf" in result.output
