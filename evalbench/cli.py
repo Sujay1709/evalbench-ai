@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 from typing import Annotated
 
@@ -7,7 +8,13 @@ from rich.table import Table
 
 from evalbench import create_app
 from evalbench.config import Settings
-from evalbench.datasets import load_jsonl
+from evalbench.datasets import (
+    HuggingFaceDataset,
+    HuggingFaceImportError,
+    HuggingFaceImportSpec,
+    import_huggingface_dataset,
+    load_jsonl,
+)
 from evalbench.extensions import db
 from evalbench.prompts import load_prompt
 from evalbench.providers import build_provider
@@ -60,6 +67,80 @@ def run_evaluation(
             f"[bold]Pass rate:[/bold] {run.pass_rate:.0%}  "
             f"[bold]Mean score:[/bold] {run.mean_score:.3f}"
         )
+
+
+@cli.command("import-hf")
+def import_huggingface(
+    dataset: Annotated[
+        HuggingFaceDataset,
+        typer.Option("--dataset", help="Supported Hugging Face dataset adapter."),
+    ],
+    revision: Annotated[
+        str,
+        typer.Option("--revision", help="Pinned 40-character dataset commit SHA."),
+    ],
+    output: Annotated[
+        Path,
+        typer.Option("--output", help="Destination EvalBench JSONL file."),
+    ],
+    source_split: Annotated[str, typer.Option("--source-split")] = "validation",
+    target_split: Annotated[
+        str,
+        typer.Option("--target-split", help="EvalBench development or holdout split."),
+    ] = "development",
+    count: Annotated[int, typer.Option("--count", min=1)] = 10,
+    seed: Annotated[int, typer.Option("--seed")] = 42,
+    scan_limit: Annotated[int, typer.Option("--scan-limit", min=1)] = 1_000,
+    retrieved_at: Annotated[
+        str | None,
+        typer.Option(
+            "--retrieved-at",
+            help="Recorded retrieval date in YYYY-MM-DD format; defaults to today.",
+        ),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Replace an existing output file."),
+    ] = False,
+) -> None:
+    """Stream and normalize a deterministic sample from Hugging Face."""
+    if target_split not in {"development", "holdout"}:
+        raise typer.BadParameter(
+            "must be 'development' or 'holdout'",
+            param_hint="--target-split",
+        )
+    try:
+        retrieval_date = date.fromisoformat(retrieved_at) if retrieved_at else date.today()
+    except ValueError as exc:
+        raise typer.BadParameter(
+            "must use YYYY-MM-DD format",
+            param_hint="--retrieved-at",
+        ) from exc
+
+    try:
+        spec = HuggingFaceImportSpec(
+            dataset=dataset,
+            revision=revision,
+            output_path=output,
+            source_split=source_split,
+            target_split=target_split,
+            sample_size=count,
+            seed=seed,
+            scan_limit=scan_limit,
+            retrieved_at=retrieval_date,
+            force=force,
+        )
+        result = import_huggingface_dataset(spec)
+    except HuggingFaceImportError as exc:
+        console.print(f"[red]Import failed:[/red] {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+    console.print(
+        f"[green]Imported {len(result.dataset.examples)} examples[/green] "
+        f"to {result.output_path}"
+    )
+    console.print(f"Dataset hash: {result.dataset.content_hash}")
+    console.print(f"Source offsets: {', '.join(map(str, result.source_offsets))}")
 
 
 if __name__ == "__main__":

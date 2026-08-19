@@ -276,7 +276,7 @@ flowchart LR
 
 ### Five stages before calling it production evidence
 
-1. **Sample validation — complete:** map small pinned SQuAD v2 and HotpotQA samples into EvalBench, record provenance, and test the normalized examples.
+1. **Sample validation — complete:** map small pinned SQuAD v2 and HotpotQA samples into EvalBench, record provenance, and test the normalized examples. A streamed CLI importer now reproduces larger seeded samples from pinned revisions.
 2. **Scorer validation — complete:** token F1 and answerability cover punctuation, aliases, partial overlap, empty answers, and explicit abstention.
 3. **Live provider adapter — contract complete:** the Responses API adapter has bounded SDK retries, timeout/error classification, token metadata, and cache-safe model identity. A credentialed smoke test and multi-model comparison remain.
 4. **RAG evaluation:** use LlamaIndex only as the retrieval layer, log retrieved evidence, and score both final answers and retrieval quality.
@@ -325,7 +325,7 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
 
 - [x] **Phase 0:** Flask foundation, typed settings, persistence, migrations, health checks, and tests
 - [x] **Phase 1:** versioned automotive data, prompt registry, provider protocol, deterministic scoring, persisted runs, and response caching
-- [ ] **Phase 2 — in progress:** HF samples, QA scorers, and the opt-in provider adapter are complete; importer, credentialed smoke test, and split policies remain
+- [ ] **Phase 2 — in progress:** HF samples, QA scorers, the streamed importer, and the opt-in provider adapter are complete; a credentialed provider smoke test and split policies remain
 - [ ] **Phase 3:** Inngest background execution, retries, and operational failure visibility
 - [ ] **Phase 4:** baseline comparison dashboard, latency/cost analysis, and retrieval metrics
 - [ ] **Phase 5:** calibrated LLM judge and human-reviewed evaluation subset

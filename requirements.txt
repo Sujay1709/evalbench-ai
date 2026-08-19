@@ -29,6 +29,9 @@ numpy>=2.2,<3.0
 scipy>=1.15,<2.0
 scikit-learn>=1.6,<2.0
 
+# Reproducible external dataset ingestion
+datasets>=5.0,<6.0
+
 # LLM access, tracing, retries, and HTTP
 openai>=1.99,<3.0
 langsmith>=0.4,<1.0
