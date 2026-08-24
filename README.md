@@ -186,20 +186,9 @@ This is an opt-in paid integration. The public demo must keep `LLM_PROVIDER=mock
 
 ## What has actually been tested
 
-The following checks were most recently run locally on August 24, 2026:
+The repository includes automated tests covering dataset loading, scoring, provider contracts, migrations, and CLI behavior. These tests can be verified by running `pytest` and `ruff check .` in a local development environment.
 
-| Check | Result |
-|---|---|
-| `pytest` | 45 tests passed |
-| `ruff check .` | Passed |
-| Database migration | Upgrade completed and all three application tables were created |
-| Development CLI evaluation | 3 of 3 deterministic fixtures passed; all responses generated |
-| Repeated development evaluation | 3 of 3 passed with identical metrics; all responses served from cache |
-| Holdout CLI evaluation | 2 of 2 deterministic fixtures passed after explicit split selection |
-| Flask dashboard | Homepage and run-detail evidence rendered successfully |
-| Health routes | Liveness and database readiness returned successful responses |
-
-The 100% fixture result validates the mechanics of the runner and scorers. It is **not** presented as evidence that a real LLM has perfect automotive knowledge.
+Manual verification of database migrations, CLI evaluation runs, the Flask dashboard, and health routes should be performed in a clean environment to confirm end-to-end behavior. The 100% pass rate on deterministic fixtures validates the mechanics of the runner and scorers but is **not** evidence that a real LLM has perfect automotive knowledge.
 
 ## Evaluation data contract
 

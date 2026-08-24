@@ -44,13 +44,13 @@ def run_evaluation(
     ] = EvaluationSplit.DEVELOPMENT,
 ) -> None:
     """Run a benchmark with the provider selected by environment settings."""
+    dataset = load_jsonl(dataset_path).select_split(split)
+    prompt = load_prompt(prompt_path)
     settings = Settings()
     provider = build_provider(settings)
     app = create_app()
     with app.app_context():
         db.create_all()
-        dataset = load_jsonl(dataset_path).select_split(split)
-        prompt = load_prompt(prompt_path)
         run = EvaluationRunner(provider).run(dataset, prompt)
 
         table = Table(title=f"EvalBench run {run.id[:8]}")

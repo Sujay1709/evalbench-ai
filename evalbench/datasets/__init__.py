@@ -20,9 +20,9 @@ from evalbench.datasets.schemas import (
 )
 
 __all__ = [
-    "DatasetValidationError",
     "DatasetProvenance",
     "DatasetSplitError",
+    "DatasetValidationError",
     "EvaluationExample",
     "EvaluationSplit",
     "HuggingFaceDataset",
