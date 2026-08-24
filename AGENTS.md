@@ -7,7 +7,7 @@ Build EvalBench as a portfolio-quality, reproducible LLM evaluation and regressi
 ## Current scope
 
 - Phase 0 and Phase 1 are complete.
-- Phase 2 is active: external dataset provenance, QA scorers, and an opt-in OpenAI provider are implemented; importer and split policies remain.
+- Phase 2 is active: external dataset provenance, the Hugging Face importer, QA scorers, split enforcement, and an opt-in OpenAI provider are implemented; a credentialed provider smoke test remains.
 - Keep all automated tests offline. Do not add LlamaIndex, LangSmith tracing, or Inngest workflows until their planned slice.
 
 ## Architecture rules
@@ -27,7 +27,7 @@ python -m pip install -r requirements-dev.txt
 pytest
 ruff check .
 flask --app evalbench:create_app run --debug
-python -m evalbench.cli run
+python -m evalbench.cli run --split development
 ```
 
 ## Quality expectations

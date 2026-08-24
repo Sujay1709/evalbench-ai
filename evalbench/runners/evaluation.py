@@ -3,7 +3,7 @@ import json
 import uuid
 from datetime import UTC, datetime
 
-from evalbench.datasets import EvaluationExample, LoadedDataset
+from evalbench.datasets import DatasetSplitError, EvaluationExample, LoadedDataset
 from evalbench.extensions import db
 from evalbench.models import EvaluationRun, ExampleResult, ResponseCache
 from evalbench.prompts import PromptDefinition
@@ -35,11 +35,22 @@ class EvaluationRunner:
         self.provider = provider
 
     def run(self, dataset: LoadedDataset, prompt: PromptDefinition) -> EvaluationRun:
+        if dataset.selected_split is None:
+            raise DatasetSplitError(
+                "Dataset split must be selected before evaluation; "
+                "choose development or holdout"
+            )
+        if any(example.split != dataset.selected_split for example in dataset.examples):
+            raise DatasetSplitError(
+                f"Selected '{dataset.selected_split.value}' dataset contains mixed split labels"
+            )
+
         run = EvaluationRun(
             id=str(uuid.uuid4()),
             dataset_name=dataset.name,
             dataset_version=dataset.version,
             dataset_hash=dataset.content_hash,
+            dataset_split=dataset.selected_split.value,
             prompt_id=prompt.id,
             prompt_version=prompt.version,
             provider=self.provider.name,

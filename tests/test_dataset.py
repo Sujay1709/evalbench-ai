@@ -1,7 +1,12 @@
 import pytest
 from pydantic import ValidationError
 
-from evalbench.datasets import DatasetProvenance, load_jsonl
+from evalbench.datasets import (
+    DatasetProvenance,
+    DatasetSplitError,
+    EvaluationSplit,
+    load_jsonl,
+)
 from tests.conftest import PROJECT_ROOT
 
 
@@ -14,6 +19,36 @@ def test_dataset_hash_is_stable():
     assert len(first.examples) == 5
     assert first.content_hash == second.content_hash
     assert len(first.content_hash) == 64
+
+
+def test_dataset_selects_one_split_and_rehashes_the_exact_subset():
+    dataset = load_jsonl(PROJECT_ROOT / "datasets" / "automotive_qa" / "v1.jsonl")
+
+    development = dataset.select_split(EvaluationSplit.DEVELOPMENT)
+    repeated_development = dataset.select_split(EvaluationSplit.DEVELOPMENT)
+    holdout = dataset.select_split(EvaluationSplit.HOLDOUT)
+
+    assert len(development.examples) == 3
+    assert len(holdout.examples) == 2
+    assert development.selected_split is EvaluationSplit.DEVELOPMENT
+    assert holdout.selected_split is EvaluationSplit.HOLDOUT
+    assert development.content_hash == repeated_development.content_hash
+    assert development.content_hash != holdout.content_hash
+    assert development.content_hash != dataset.content_hash
+
+
+def test_dataset_reports_when_requested_split_is_missing(tmp_path):
+    dataset_path = tmp_path / "development_only.jsonl"
+    dataset_path.write_text(
+        '{"id":"dev-only","input":{"question":"Test?"},'
+        '"mock_response":"yes","scorers":[{"type":"exact_match",'
+        '"expected":"yes"}],"split":"development"}\n'
+    )
+
+    dataset = load_jsonl(dataset_path)
+
+    with pytest.raises(DatasetSplitError, match="contains no 'holdout' examples"):
+        dataset.select_split(EvaluationSplit.HOLDOUT)
 
 
 @pytest.mark.parametrize(
@@ -53,6 +88,20 @@ def test_external_samples_include_pinned_provenance(
 
     assert len(source_ids) == 4
     assert expected_tags <= {tag for example in dataset.examples for tag in example.tags}
+
+
+@pytest.mark.parametrize(
+    "relative_path",
+    [
+        "datasets/squad_v2/sample_v1.jsonl",
+        "datasets/hotpot_qa/sample_v1.jsonl",
+    ],
+)
+def test_external_samples_have_balanced_evaluation_splits(relative_path):
+    dataset = load_jsonl(PROJECT_ROOT / relative_path)
+
+    assert len(dataset.select_split(EvaluationSplit.DEVELOPMENT).examples) == 2
+    assert len(dataset.select_split(EvaluationSplit.HOLDOUT).examples) == 2
 
 
 @pytest.mark.parametrize("source_url", ["https://", "http://example.com/dataset"])

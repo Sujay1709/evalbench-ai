@@ -135,7 +135,7 @@ python -m pip install -r requirements-dev.txt
 cp .env.example .env
 flask --app evalbench:create_app db upgrade
 pytest
-python -m evalbench.cli run
+python -m evalbench.cli run --split development
 flask --app evalbench:create_app run --debug
 ```
 
@@ -154,8 +154,8 @@ curl --fail http://localhost:5000/health/ready
 ### Reproducibility and cache check
 
 ```bash
-python -m evalbench.cli run
-python -m evalbench.cli run
+python -m evalbench.cli run --split development
+python -m evalbench.cli run --split development
 ```
 
 The first run generates deterministic offline responses. The second run should mark every response as coming from the cache while producing the same scores and content hashes.
@@ -178,22 +178,24 @@ Then run one of the pinned samples:
 ```bash
 python -m evalbench.cli run \
   --dataset datasets/squad_v2/sample_v1.jsonl \
-  --prompt prompts/grounded_qa/v1.yaml
+  --prompt prompts/grounded_qa/v1.yaml \
+  --split development
 ```
 
 This is an opt-in paid integration. The public demo must keep `LLM_PROVIDER=mock`, and the live command should only be run after confirming the selected model, account access, and cost budget.
 
 ## What has actually been tested
 
-The following checks were run locally on August 17, 2026:
+The following checks were most recently run locally on August 24, 2026:
 
 | Check | Result |
 |---|---|
-| `pytest` | 26 tests passed |
+| `pytest` | 45 tests passed |
 | `ruff check .` | Passed |
 | Database migration | Upgrade completed and all three application tables were created |
-| First CLI evaluation | 5 of 5 deterministic fixtures passed; all responses generated |
-| Repeated CLI evaluation | 5 of 5 passed with identical metrics; all responses served from cache |
+| Development CLI evaluation | 3 of 3 deterministic fixtures passed; all responses generated |
+| Repeated development evaluation | 3 of 3 passed with identical metrics; all responses served from cache |
+| Holdout CLI evaluation | 2 of 2 deterministic fixtures passed after explicit split selection |
 | Flask dashboard | Homepage and run-detail evidence rendered successfully |
 | Health routes | Liveness and database readiness returned successful responses |
 
@@ -233,8 +235,8 @@ Yes, EvalBench can be tested with Hugging Face datasets and live reference data.
 
 | Source | What it tests | Proposed EvalBench use |
 |---|---|---|
-| [SQuAD v2](https://huggingface.co/datasets/rajpurkar/squad_v2) | Grounded extractive QA plus questions with no answer in the supplied context | Four-row sample scored with token F1 and answerability; automated import remains planned |
-| [HotpotQA](https://huggingface.co/datasets/hotpotqa/hotpot_qa) | Multi-hop reasoning across multiple context passages with supporting facts | Four-row sample scored with token F1 and answerability; full distractor import remains planned |
+| [SQuAD v2](https://huggingface.co/datasets/rajpurkar/squad_v2) | Grounded extractive QA plus questions with no answer in the supplied context | Four-row fixture plus a revision-pinned streamed importer |
+| [HotpotQA](https://huggingface.co/datasets/hotpotqa/hotpot_qa) | Multi-hop reasoning across multiple context passages with supporting facts | Four-row fixture plus a revision-pinned `distractor` importer |
 | [NHTSA vPIC](https://vpic.nhtsa.dot.gov/api/Home/Index) | Live automotive manufacturer, model, VIN, and vehicle specification data | Create timestamped domain regression cases and test freshness, normalization, and API-failure handling |
 | Curated automotive holdout | Portfolio-specific questions reviewed against authoritative sources | Measure domain accuracy and regression behavior without benchmark contamination |
 
@@ -253,6 +255,17 @@ This distinction prevents evaluation leakage:
 | Public system instructions | Yes | Defines the task and response contract |
 
 Putting the expected answer into the prompt would test copying, not reasoning or retrieval. For RAG evaluation, EvalBench should index a separate reference corpus, retrieve top-k passages, pass those passages to the model, and keep the gold answer isolated in the evaluator. The run should record retrieved document IDs so groundedness and citation quality can be audited.
+
+### Development and holdout policy
+
+Every evaluation run selects exactly one split. `development` is the default for prompt iteration, while `holdout` must be requested explicitly for milestone evaluation:
+
+```bash
+python -m evalbench.cli run --split development
+python -m evalbench.cli run --split holdout
+```
+
+Mixed-split runs are rejected before a provider call or database write. Each selected subset receives its own content hash, and the chosen split is persisted with the run. Historical runs created before this policy are labeled `legacy_mixed` rather than being misrepresented as leakage-safe runs.
 
 ### Proposed live-test pipeline
 
@@ -325,7 +338,7 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
 
 - [x] **Phase 0:** Flask foundation, typed settings, persistence, migrations, health checks, and tests
 - [x] **Phase 1:** versioned automotive data, prompt registry, provider protocol, deterministic scoring, persisted runs, and response caching
-- [ ] **Phase 2 — in progress:** HF samples, QA scorers, the streamed importer, and the opt-in provider adapter are complete; a credentialed provider smoke test and split policies remain
+- [ ] **Phase 2 — in progress:** HF samples, QA scorers, the streamed importer, split enforcement, and the opt-in provider adapter are complete; a credentialed provider smoke test remains
 - [ ] **Phase 3:** Inngest background execution, retries, and operational failure visibility
 - [ ] **Phase 4:** baseline comparison dashboard, latency/cost analysis, and retrieval metrics
 - [ ] **Phase 5:** calibrated LLM judge and human-reviewed evaluation subset

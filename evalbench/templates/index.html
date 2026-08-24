@@ -40,6 +40,7 @@
             <tr>
               <th>Run</th>
               <th>Dataset</th>
+              <th>Split</th>
               <th>Prompt</th>
               <th>Status</th>
               <th>Pass rate</th>
@@ -51,6 +52,7 @@
               <tr>
                 <td><a href="{{ url_for('web.run_detail', run_id=run.id) }}">{{ run.id[:8] }}</a></td>
                 <td>{{ run.dataset_name }} · {{ run.dataset_version }}</td>
+                <td>{{ run.dataset_split | replace('_', ' ') | title }}</td>
                 <td>{{ run.prompt_id }} · {{ run.prompt_version }}</td>
                 <td><span class="status status-{{ run.status }}">{{ run.status }}</span></td>
                 <td>{{ "%.0f%%"|format(run.pass_rate * 100) }}</td>

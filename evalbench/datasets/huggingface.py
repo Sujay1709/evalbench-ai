@@ -7,13 +7,12 @@ from dataclasses import dataclass, field
 from datetime import date
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from evalbench.datasets.loader import LoadedDataset, load_jsonl
-from evalbench.datasets.schemas import EvaluationExample
+from evalbench.datasets.schemas import EvaluationExample, EvaluationSplit
 
 REVISION_PATTERN = re.compile(r"^[0-9a-f]{40}$")
-EvaluationSplit = Literal["development", "holdout"]
 LoadDataset = Callable[..., Iterable[Mapping[str, Any]]]
 
 
@@ -32,7 +31,7 @@ class HuggingFaceImportSpec:
     revision: str
     output_path: Path
     source_split: str = "validation"
-    target_split: EvaluationSplit = "development"
+    target_split: EvaluationSplit = EvaluationSplit.DEVELOPMENT
     sample_size: int = 10
     seed: int = 42
     scan_limit: int = 1_000
