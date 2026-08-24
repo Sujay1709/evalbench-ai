@@ -1,3 +1,4 @@
+import pytest
 import sqlalchemy as sa
 from alembic import command
 from alembic.config import Config
@@ -47,5 +48,24 @@ def test_dataset_split_migration_labels_historical_runs(tmp_path):
                     "SELECT dataset_split FROM evaluation_runs WHERE id = 'legacy-run'"
                 )
             ).scalar_one()
+
+        with pytest.raises(sa.exc.IntegrityError, match="dataset_split"):
+            with db.engine.begin() as connection:
+                connection.execute(
+                    sa.text(
+                        """
+                        INSERT INTO evaluation_runs (
+                            id, dataset_name, dataset_version, dataset_hash,
+                            prompt_id, prompt_version, provider, status,
+                            total_examples, passed_examples, mean_score, created_at
+                        ) VALUES (
+                            'missing-split-run', 'automotive_qa', 'v1', :dataset_hash,
+                            'automotive-qa', 'v1', 'mock', 'completed',
+                            5, 5, 1.0, '2026-08-24 00:00:00'
+                        )
+                        """
+                    ),
+                    {"dataset_hash": "b" * 64},
+                )
 
     assert split == "legacy_mixed"
