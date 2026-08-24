@@ -1,9 +1,15 @@
 from datetime import date
+from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 from pydantic import AnyHttpUrl, BaseModel, Field, UrlConstraints, model_validator
 
 HttpsUrl = Annotated[AnyHttpUrl, UrlConstraints(allowed_schemes=["https"])]
+
+
+class EvaluationSplit(StrEnum):
+    DEVELOPMENT = "development"
+    HOLDOUT = "holdout"
 
 
 class ScorerSpec(BaseModel):
@@ -52,5 +58,5 @@ class EvaluationExample(BaseModel):
     scorers: list[ScorerSpec] = Field(min_length=1)
     tags: list[str] = Field(default_factory=list)
     difficulty: Literal["easy", "medium", "hard"] = "medium"
-    split: Literal["development", "holdout"] = "development"
+    split: EvaluationSplit = EvaluationSplit.DEVELOPMENT
     provenance: DatasetProvenance | None = None

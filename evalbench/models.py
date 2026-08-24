@@ -14,6 +14,7 @@ class EvaluationRun(db.Model):
     dataset_name = db.Column(db.String(120), nullable=False)
     dataset_version = db.Column(db.String(80), nullable=False)
     dataset_hash = db.Column(db.String(64), nullable=False)
+    dataset_split = db.Column(db.String(24), nullable=False)
     prompt_id = db.Column(db.String(120), nullable=False)
     prompt_version = db.Column(db.String(80), nullable=False)
     provider = db.Column(db.String(80), nullable=False)

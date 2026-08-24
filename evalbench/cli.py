@@ -9,6 +9,7 @@ from rich.table import Table
 from evalbench import create_app
 from evalbench.config import Settings
 from evalbench.datasets import (
+    EvaluationSplit,
     HuggingFaceDataset,
     HuggingFaceImportError,
     HuggingFaceImportSpec,
@@ -37,6 +38,10 @@ def main() -> None:
 def run_evaluation(
     dataset_path: Annotated[Path, typer.Option("--dataset")] = DEFAULT_DATASET,
     prompt_path: Annotated[Path, typer.Option("--prompt")] = DEFAULT_PROMPT,
+    split: Annotated[
+        EvaluationSplit,
+        typer.Option("--split", help="Evaluate one leakage-safe dataset split."),
+    ] = EvaluationSplit.DEVELOPMENT,
 ) -> None:
     """Run a benchmark with the provider selected by environment settings."""
     settings = Settings()
@@ -44,7 +49,7 @@ def run_evaluation(
     app = create_app()
     with app.app_context():
         db.create_all()
-        dataset = load_jsonl(dataset_path)
+        dataset = load_jsonl(dataset_path).select_split(split)
         prompt = load_prompt(prompt_path)
         run = EvaluationRunner(provider).run(dataset, prompt)
 
@@ -67,6 +72,7 @@ def run_evaluation(
             f"[bold]Pass rate:[/bold] {run.pass_rate:.0%}  "
             f"[bold]Mean score:[/bold] {run.mean_score:.3f}"
         )
+        console.print(f"[bold]Dataset split:[/bold] {run.dataset_split}")
 
 
 @cli.command("import-hf")
@@ -85,9 +91,9 @@ def import_huggingface(
     ],
     source_split: Annotated[str, typer.Option("--source-split")] = "validation",
     target_split: Annotated[
-        str,
+        EvaluationSplit,
         typer.Option("--target-split", help="EvalBench development or holdout split."),
-    ] = "development",
+    ] = EvaluationSplit.DEVELOPMENT,
     count: Annotated[int, typer.Option("--count", min=1)] = 10,
     seed: Annotated[int, typer.Option("--seed")] = 42,
     scan_limit: Annotated[int, typer.Option("--scan-limit", min=1)] = 1_000,
@@ -104,11 +110,6 @@ def import_huggingface(
     ] = False,
 ) -> None:
     """Stream and normalize a deterministic sample from Hugging Face."""
-    if target_split not in {"development", "holdout"}:
-        raise typer.BadParameter(
-            "must be 'development' or 'holdout'",
-            param_hint="--target-split",
-        )
     try:
         retrieval_date = date.fromisoformat(retrieved_at) if retrieved_at else date.today()
     except ValueError as exc:

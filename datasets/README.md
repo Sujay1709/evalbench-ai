@@ -17,14 +17,16 @@ The SQuAD v2 and HotpotQA samples are derived from their Hugging Face validation
 ```bash
 python -m evalbench.cli run \
   --dataset datasets/squad_v2/sample_v1.jsonl \
-  --prompt prompts/grounded_qa/v1.yaml
+  --prompt prompts/grounded_qa/v1.yaml \
+  --split development
 
 python -m evalbench.cli run \
   --dataset datasets/hotpot_qa/sample_v1.jsonl \
-  --prompt prompts/grounded_qa/v1.yaml
+  --prompt prompts/grounded_qa/v1.yaml \
+  --split development
 ```
 
-These commands use the deterministic mock provider. They validate dataset conversion, prompt rendering, scoring, persistence, and caching; they do not measure a live LLM.
+These commands use the deterministic mock provider. Replace `development` with `holdout` only for an explicit milestone evaluation. Mixed-split runs are rejected. The commands validate dataset conversion, prompt rendering, scoring, persistence, and caching; they do not measure a live LLM.
 
 ## Import a deterministic streamed sample
 

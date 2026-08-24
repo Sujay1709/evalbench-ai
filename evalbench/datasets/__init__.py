@@ -6,13 +6,25 @@ from evalbench.datasets.huggingface import (
     deterministic_offsets,
     import_huggingface_dataset,
 )
-from evalbench.datasets.loader import DatasetValidationError, LoadedDataset, load_jsonl
-from evalbench.datasets.schemas import DatasetProvenance, EvaluationExample, ScorerSpec
+from evalbench.datasets.loader import (
+    DatasetSplitError,
+    DatasetValidationError,
+    LoadedDataset,
+    load_jsonl,
+)
+from evalbench.datasets.schemas import (
+    DatasetProvenance,
+    EvaluationExample,
+    EvaluationSplit,
+    ScorerSpec,
+)
 
 __all__ = [
     "DatasetValidationError",
     "DatasetProvenance",
+    "DatasetSplitError",
     "EvaluationExample",
+    "EvaluationSplit",
     "HuggingFaceDataset",
     "HuggingFaceImportError",
     "HuggingFaceImportResult",
