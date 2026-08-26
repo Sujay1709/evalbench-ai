@@ -319,7 +319,7 @@ Model-based judges are useful but not ground truth. Their prompt, model version,
 | Docker | **Prepared, not yet verified** | Container definition exists; image build and runtime smoke test remain |
 | Render | **Not deployed** | Deployment procedure and inactivity mitigation are documented in `Deploy.md` |
 | External uptime monitor | **Not configured** | `/health` is ready for a permitted monitoring service |
-| Inngest background jobs | **Planned** | Deferred until evaluation execution is moved out of the request cycle |
+| Inngest background jobs | **Foundation verified** | Typed event contract, local discovery endpoint, and production signature enforcement are tested; durable execution steps remain |
 | Public portfolio demo | **Planned** | Must use a read-only seeded demo or authenticated, rate-limited live runs |
 
 The deploy status is intentionally explicit: a Dockerfile or deployment document is not the same as a verified public deployment.
@@ -331,6 +331,7 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
 - Content-addressed caching prevents identical live requests from being billed twice.
 - Historical evaluation runs are append-only for auditability.
 - A public demo must never expose an unauthenticated paid generation endpoint.
+- The Inngest endpoint is omitted from read-only demos and rejects unsigned production invocations and synchronization requests.
 - The OpenAI adapter uses timeouts, bounded SDK retries, failure classification, `store=False`, and token-usage metadata.
 - External dataset terms, licenses, revisions, and provenance should be recorded before redistribution.
 
@@ -339,7 +340,7 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
 - [x] **Phase 0:** Flask foundation, typed settings, persistence, migrations, health checks, and tests
 - [x] **Phase 1:** versioned automotive data, prompt registry, provider protocol, deterministic scoring, persisted runs, and response caching
 - [ ] **Phase 2 — in progress:** HF samples, QA scorers, the streamed importer, split enforcement, and the opt-in provider adapter are complete; a credentialed provider smoke test remains
-- [ ] **Phase 3:** Inngest background execution, retries, and operational failure visibility
+- [ ] **Phase 3 — in progress:** typed events, the shared Inngest client, endpoint security, and request validation are implemented; durable evaluation steps and recovery tests remain
 - [ ] **Phase 4:** baseline comparison dashboard, latency/cost analysis, and retrieval metrics
 - [ ] **Phase 5:** calibrated LLM judge and human-reviewed evaluation subset
 - [ ] **Phase 6:** CI regression policy with statistically justified thresholds
