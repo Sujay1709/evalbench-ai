@@ -8,7 +8,7 @@ from evalbench.extensions import db
 from tests.conftest import PROJECT_ROOT
 
 
-def test_dataset_split_migration_labels_historical_runs(tmp_path):
+def test_run_metadata_migrations_backfill_and_require_new_fields(tmp_path):
     database_path = tmp_path / "migration.db"
     app = create_app(
         {
@@ -43,11 +43,12 @@ def test_dataset_split_migration_labels_historical_runs(tmp_path):
         command.upgrade(config, "head")
 
         with db.engine.connect() as connection:
-            split = connection.execute(
+            migrated_run = connection.execute(
                 sa.text(
-                    "SELECT dataset_split FROM evaluation_runs WHERE id = 'legacy-run'"
+                    "SELECT dataset_split, correlation_id "
+                    "FROM evaluation_runs WHERE id = 'legacy-run'"
                 )
-            ).scalar_one()
+            ).one()
 
         with pytest.raises(sa.exc.IntegrityError, match="dataset_split"):
             with db.engine.begin() as connection:
@@ -55,11 +56,12 @@ def test_dataset_split_migration_labels_historical_runs(tmp_path):
                     sa.text(
                         """
                         INSERT INTO evaluation_runs (
-                            id, dataset_name, dataset_version, dataset_hash,
+                            id, correlation_id, dataset_name, dataset_version, dataset_hash,
                             prompt_id, prompt_version, provider, status,
                             total_examples, passed_examples, mean_score, created_at
                         ) VALUES (
-                            'missing-split-run', 'automotive_qa', 'v1', :dataset_hash,
+                            'missing-split-run', 'missing-split-correlation',
+                            'automotive_qa', 'v1', :dataset_hash,
                             'automotive-qa', 'v1', 'mock', 'completed',
                             5, 5, 1.0, '2026-08-24 00:00:00'
                         )
@@ -68,4 +70,24 @@ def test_dataset_split_migration_labels_historical_runs(tmp_path):
                     {"dataset_hash": "b" * 64},
                 )
 
-    assert split == "legacy_mixed"
+        with pytest.raises(sa.exc.IntegrityError, match="correlation_id"):
+            with db.engine.begin() as connection:
+                connection.execute(
+                    sa.text(
+                        """
+                        INSERT INTO evaluation_runs (
+                            id, dataset_name, dataset_version, dataset_hash,
+                            dataset_split, prompt_id, prompt_version, provider, status,
+                            total_examples, passed_examples, mean_score, created_at
+                        ) VALUES (
+                            'missing-correlation-run', 'automotive_qa', 'v1', :dataset_hash,
+                            'development', 'automotive-qa', 'v1', 'mock', 'completed',
+                            5, 5, 1.0, '2026-08-29 00:00:00'
+                        )
+                        """
+                    ),
+                    {"dataset_hash": "c" * 64},
+                )
+
+    assert migrated_run.dataset_split == "legacy_mixed"
+    assert migrated_run.correlation_id == "legacy-run"

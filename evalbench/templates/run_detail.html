@@ -13,6 +13,7 @@
       <div><span>Mean score</span><strong>{{ "%.3f"|format(run.mean_score) }}</strong></div>
       <div><span>Dataset split</span><strong>{{ run.dataset_split | replace('_', ' ') | title }}</strong></div>
       <div><span>Dataset hash</span><strong title="{{ run.dataset_hash }}">{{ run.dataset_hash[:12] }}</strong></div>
+      <div><span>Correlation ID</span><strong title="{{ run.correlation_id }}">{{ run.correlation_id[:12] }}</strong></div>
     </div>
   </section>
 

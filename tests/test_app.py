@@ -13,6 +13,7 @@ def test_dashboard_and_run_detail_display_the_dataset_split(app, client):
     with app.app_context():
         run = EvaluationRun(
             id="split-test-run",
+            correlation_id="correlation-test-run",
             dataset_name="automotive_qa",
             dataset_version="v1",
             dataset_hash="a" * 64,
@@ -37,3 +38,5 @@ def test_dashboard_and_run_detail_display_the_dataset_split(app, client):
     assert detail.status_code == 200
     assert b"Dataset split" in detail.data
     assert b"Holdout" in detail.data
+    assert b"Correlation ID" in detail.data
+    assert b"correlation-" in detail.data

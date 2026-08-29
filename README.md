@@ -34,9 +34,10 @@ EvalBench is designed around those questions. It emphasizes measurable behavior,
 | Deterministic scoring | Exact match, token F1, answerability, and JSON Schema with readable evidence |
 | Reproducibility | Dataset, prompt, provider, and settings hashes are stored with each run |
 | Response caching | Identical requests are served from a content-addressed SQLite cache |
-| Audit trail | Append-only run summaries and per-example results |
+| Audit trail | Append-only run summaries, per-example results, and persisted correlation IDs |
+| Durable workflow foundation | Idempotent queued-run preparation plus a memoized Inngest validation checkpoint |
 | Web observability | Run dashboard, run-detail view, liveness, and database readiness routes |
-| Local quality gate | Twenty-six automated tests and Ruff static analysis pass locally |
+| Local quality gate | Sixty-six automated tests and Ruff static analysis pass locally |
 
 ## Architecture pipeline
 
@@ -82,6 +83,8 @@ sequenceDiagram
     participant Scorer as Scorers
     participant Store as Run store
 
+    User->>Runner: Prepare queued run with correlation ID
+    Runner->>Store: Persist immutable run identity
     User->>Runner: Start(dataset, prompt, provider)
     loop Each validated example
         Runner->>Cache: Lookup content key
@@ -186,11 +189,11 @@ This is an opt-in paid integration. The public demo must keep `LLM_PROVIDER=mock
 
 ## What has actually been tested
 
-The following checks were most recently run locally on August 24, 2026:
+The following checks were most recently run locally on August 29, 2026:
 
 | Check | Result |
 |---|---|
-| `pytest` | 45 tests passed |
+| `pytest` | 66 tests passed |
 | `ruff check .` | Passed |
 | Database migration | Upgrade completed and all three application tables were created |
 | Development CLI evaluation | 3 of 3 deterministic fixtures passed; all responses generated |
@@ -319,7 +322,7 @@ Model-based judges are useful but not ground truth. Their prompt, model version,
 | Docker | **Prepared, not yet verified** | Container definition exists; image build and runtime smoke test remain |
 | Render | **Not deployed** | Deployment procedure and inactivity mitigation are documented in `Deploy.md` |
 | External uptime monitor | **Not configured** | `/health` is ready for a permitted monitoring service |
-| Inngest background jobs | **Foundation verified** | Typed event contract, local discovery endpoint, and production signature enforcement are tested; durable execution steps remain |
+| Inngest background jobs | **Validation checkpoint verified** | Typed events, correlation IDs, queued-run preparation, idempotent request validation, endpoint discovery, and production signatures are tested; generation and scoring steps remain |
 | Public portfolio demo | **Planned** | Must use a read-only seeded demo or authenticated, rate-limited live runs |
 
 The deploy status is intentionally explicit: a Dockerfile or deployment document is not the same as a verified public deployment.
@@ -340,7 +343,7 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
 - [x] **Phase 0:** Flask foundation, typed settings, persistence, migrations, health checks, and tests
 - [x] **Phase 1:** versioned automotive data, prompt registry, provider protocol, deterministic scoring, persisted runs, and response caching
 - [ ] **Phase 2 — in progress:** HF samples, QA scorers, the streamed importer, split enforcement, and the opt-in provider adapter are complete; a credentialed provider smoke test remains
-- [ ] **Phase 3 — in progress:** typed events, the shared Inngest client, endpoint security, and request validation are implemented; durable evaluation steps and recovery tests remain
+- [ ] **Phase 3 — in progress:** typed events, the shared Inngest client, endpoint security, persisted correlation IDs, queued-run preparation, and durable request validation are implemented; generation, scoring, aggregation, and recovery tests remain
 - [ ] **Phase 4:** baseline comparison dashboard, latency/cost analysis, and retrieval metrics
 - [ ] **Phase 5:** calibrated LLM judge and human-reviewed evaluation subset
 - [ ] **Phase 6:** CI regression policy with statistically justified thresholds
