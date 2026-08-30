@@ -11,6 +11,7 @@ class EvaluationRun(db.Model):
     __tablename__ = "evaluation_runs"
 
     id = db.Column(db.String(36), primary_key=True)
+    correlation_id = db.Column(db.String(36), nullable=False, unique=True)
     dataset_name = db.Column(db.String(120), nullable=False)
     dataset_version = db.Column(db.String(80), nullable=False)
     dataset_hash = db.Column(db.String(64), nullable=False)

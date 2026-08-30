@@ -78,6 +78,7 @@ The final `.env.example` should document at least the following variables:
 | `OPENAI_MAX_OUTPUT_TOKENS` | `128` | Unused in mock mode | No |
 | `MAX_RUN_COST_USD` | Small local budget | `0` in public demo mode | No |
 | `INNGEST_DEV` | `1` when using the local Dev Server | Unset | No |
+| `INNGEST_APP_ID` | `evalbench` | `evalbench` | No |
 | `INNGEST_EVENT_KEY` | Not needed with the Dev Server | Required only for hosted workflows | Yes |
 | `INNGEST_SIGNING_KEY` | Not needed with the Dev Server | Required only for hosted workflows | Yes |
 

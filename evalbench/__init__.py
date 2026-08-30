@@ -24,8 +24,10 @@ def create_app(test_config: dict | None = None) -> Flask:
     from evalbench import models  # noqa: F401
     from evalbench.health import health_blueprint
     from evalbench.web import web_blueprint
+    from evalbench.workflows.client import init_inngest
 
     app.register_blueprint(health_blueprint)
     app.register_blueprint(web_blueprint)
+    init_inngest(app, settings)
 
     return app

@@ -34,7 +34,15 @@ class EvaluationRunner:
     def __init__(self, provider: Provider):
         self.provider = provider
 
-    def run(self, dataset: LoadedDataset, prompt: PromptDefinition) -> EvaluationRun:
+    def prepare_run(
+        self,
+        dataset: LoadedDataset,
+        prompt: PromptDefinition,
+        *,
+        correlation_id: uuid.UUID | None = None,
+    ) -> EvaluationRun:
+        """Persist the queued identity that a synchronous or durable run will use."""
+
         if dataset.selected_split is None:
             raise DatasetSplitError(
                 "Dataset split must be selected before evaluation; "
@@ -45,8 +53,40 @@ class EvaluationRunner:
                 f"Selected '{dataset.selected_split.value}' dataset contains mixed split labels"
             )
 
+        correlation_value = str(correlation_id or uuid.uuid4())
+        existing_run = db.session.execute(
+            db.select(EvaluationRun).where(
+                EvaluationRun.correlation_id == correlation_value
+            )
+        ).scalar_one_or_none()
+        if existing_run is not None:
+            expected_identity = (
+                dataset.name,
+                dataset.version,
+                dataset.content_hash,
+                dataset.selected_split.value,
+                prompt.id,
+                prompt.version,
+                self.provider.name,
+            )
+            stored_identity = (
+                existing_run.dataset_name,
+                existing_run.dataset_version,
+                existing_run.dataset_hash,
+                existing_run.dataset_split,
+                existing_run.prompt_id,
+                existing_run.prompt_version,
+                existing_run.provider,
+            )
+            if stored_identity != expected_identity:
+                raise ValueError(
+                    "Correlation ID already belongs to a different evaluation request"
+                )
+            return existing_run
+
         run = EvaluationRun(
             id=str(uuid.uuid4()),
+            correlation_id=correlation_value,
             dataset_name=dataset.name,
             dataset_version=dataset.version,
             dataset_hash=dataset.content_hash,
@@ -54,10 +94,32 @@ class EvaluationRunner:
             prompt_id=prompt.id,
             prompt_version=prompt.version,
             provider=self.provider.name,
-            status="running",
+            status="queued",
             total_examples=len(dataset.examples),
         )
         db.session.add(run)
+        db.session.commit()
+        return run
+
+    def run(
+        self,
+        dataset: LoadedDataset,
+        prompt: PromptDefinition,
+        *,
+        correlation_id: uuid.UUID | None = None,
+    ) -> EvaluationRun:
+        run = self.prepare_run(
+            dataset,
+            prompt,
+            correlation_id=correlation_id,
+        )
+        if run.status == "completed":
+            return run
+        if run.status != "queued":
+            raise ValueError(
+                f"Evaluation run '{run.id}' cannot start from status '{run.status}'"
+            )
+        run.status = "running"
         db.session.commit()
 
         try:

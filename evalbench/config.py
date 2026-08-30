@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     openai_timeout_seconds: float = Field(default=30.0, gt=0)
     openai_max_retries: int = Field(default=2, ge=0, le=10)
     openai_max_output_tokens: int = Field(default=128, ge=16, le=4096)
+    inngest_app_id: str = Field(default="evalbench", min_length=1, max_length=64)
+    inngest_event_key: SecretStr | None = None
+    inngest_signing_key: SecretStr | None = None
 
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",
@@ -38,6 +41,11 @@ class Settings(BaseSettings):
             self.openai_api_key is None or not self.openai_api_key.get_secret_value().strip()
         ):
             raise ValueError("LLM_PROVIDER=openai requires OPENAI_API_KEY")
+        if self.app_env == "production" and not self.demo_read_only and (
+            self.inngest_signing_key is None
+            or not self.inngest_signing_key.get_secret_value().strip()
+        ):
+            raise ValueError("Full production mode requires INNGEST_SIGNING_KEY")
         return self
 
     def to_flask_config(self) -> dict:
@@ -55,4 +63,5 @@ class Settings(BaseSettings):
             "LLM_PROVIDER": self.llm_provider,
             "MAX_RUN_COST_USD": self.max_run_cost_usd,
             "OPENAI_MODEL": self.openai_model,
+            "INNGEST_APP_ID": self.inngest_app_id,
         }
