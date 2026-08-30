@@ -427,6 +427,40 @@ Inngest observes the evaluation functions it executes; it does not replace appli
 
 These are stretch goals, not prerequisites for shipping.
 
+## 10.1 Research-backed feature slices
+
+The following commit sequence translates published evaluation methods into small, reviewable EvalBench experiments. These are proposed features, not implemented capabilities, and each slice must preserve offline tests and the development/holdout policy.
+
+1. **Research documentation** — `docs: connect EvalBench roadmap to evaluation research`
+   - Add primary-paper references and clearly separate paper-supported findings, EvalBench design inferences, and untested hypotheses.
+   - Done when every research claim links to a primary source and no proposed metric is presented as implemented.
+
+2. **Behavioral contracts** — `feat: add behavioral perturbation contracts`
+   - Extend the dataset schema with a relationship type (`minimum_functionality`, `invariance`, or `directional`) and a stable source-example ID.
+   - Add deterministic automotive perturbations for casing, harmless wording, numeric evidence changes, missing evidence, and contradictory evidence.
+   - Report invariance violation and directional success without replacing existing exact-match, F1, answerability, or schema scores.
+   - Test malformed relationships, stable hashes, split isolation, deterministic generation, and paired metric aggregation entirely offline.
+
+3. **Causal evidence sensitivity** — `feat: score counterfactual evidence sensitivity`
+   - Define supported, evidence-removed, value-swapped, and contradictory context variants for a single question family.
+   - Record which evidence IDs changed and whether the expected behavior is answer preservation, answer revision, or abstention.
+   - Add a deterministic sensitivity scorer and example-level evidence explaining every pass or failure.
+   - Done when a deliberately evidence-insensitive mock system fails while an evidence-responsive fixture passes.
+
+4. **Judge reliability passport** — `feat: add calibrated judge reliability reports`
+   - Introduce versioned rubrics and strict structured judge output.
+   - Run repeated scoring plus pairwise order swaps; measure agreement, order-flip rate, confusion matrices, and Cohen's or weighted kappa against a human-reviewed subset.
+   - Keep deterministic scorers authoritative for directly checkable properties and prohibit uncalibrated judges from gating releases.
+   - Mock all judge responses in automated tests; keep credentialed calibration runs opt-in and cost-capped.
+
+5. **Confidence-budgeted regression sampling** — `feat: add uncertainty-aware evaluation sampling`
+   - Implement paired intervals and documented minimum-detectable-effect thresholds before adaptive stopping.
+   - Require minimum sample coverage for every configured tag and difficulty slice so cheap/easy examples cannot dominate the decision.
+   - Persist the sampling order, stop reason, interval history, model-call count, and estimated cost.
+   - Validate decisions against full-suite replay on seeded simulations before reporting saved calls or enabling a CI gate.
+
+Recommended sequencing: finish Phase 3 durability first, implement behavioral contracts and evidence sensitivity during Phase 4, calibrate the judge in Phase 5, and add budget-aware stopping only after the Phase 6 statistical regression policy is verified.
+
 ## 11. Test Strategy
 
 ### Automated tests
