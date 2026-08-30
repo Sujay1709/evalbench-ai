@@ -313,6 +313,29 @@ EvalBench uses deterministic scoring whenever a property can be checked directly
 
 Model-based judges are useful but not ground truth. Their prompt, model version, and variance must be tracked like any other system under test.
 
+## Research foundations
+
+EvalBench uses evaluation research as design input, not as evidence that a planned feature already works. The papers below motivate concrete additions to the roadmap while preserving the project's rule that benchmark claims require reproducible experiments.
+
+- **Holistic evaluation:** [HELM](https://arxiv.org/abs/2211.09110) argues for evaluating models across explicit scenarios and multiple metrics while retaining raw prompts and completions for transparency. EvalBench applies this through versioned datasets, provider identities, content hashes, per-example evidence, and the planned comparison dashboard; robustness, calibration, efficiency, and fairness slices remain future work.
+- **Behavioral testing:** [CheckList](https://aclanthology.org/2020.acl-main.442/) organizes tests around capabilities and minimum-functionality, invariance, and directional-expectation cases. This motivates linked automotive test families where meaning-preserving perturbations should not change an answer and evidence-changing perturbations should change it predictably.
+- **Rubric-based LLM judges:** [G-Eval](https://aclanthology.org/2023.emnlp-main.153/) reports stronger human alignment from structured evaluation criteria and reasoning steps, but also identifies evaluator bias toward LLM-generated text. EvalBench will therefore version judge rubrics and structured outputs, then calibrate them against human labels instead of treating judge scores as ground truth.
+- **Judge bias auditing:** [MT-Bench and Chatbot Arena](https://proceedings.neurips.cc/paper_files/paper/2023/hash/91f18a1287b398d378ef22505bf41832-Abstract-Datasets_and_Benchmarks.html) document position, verbosity, self-enhancement, and reasoning limitations in LLM judges. Planned pairwise evaluation will swap answer order, preserve both decisions, measure flip rates, and route disagreements for human review.
+- **RAG component evaluation:** [RAGAS](https://aclanthology.org/2024.eacl-demo.16/) separates retrieval quality, faithful use of context, and generation quality. [ARES](https://aclanthology.org/2024.naacl-long.20/) adds context relevance, answer faithfulness, answer relevance, and calibration using a small human-labeled set. EvalBench will keep retrieval metrics separate from final-answer metrics and store the retrieved evidence IDs needed to audit both.
+- **Prompt robustness:** [PromptBench](https://arxiv.org/abs/2306.04528) evaluates character-, word-, sentence-, and semantic-level prompt perturbations. This motivates a deterministic perturbation registry and a prompt-degradation report rather than assuming one prompt template represents stable model behavior.
+- **Adaptive evaluation budgets:** [Leveraging computerized adaptive testing for cost-effective evaluation of large language models in medical benchmarking](https://www.nature.com/articles/s41746-026-02671-w) studies precision-driven variable-length evaluation instead of testing every item equally. EvalBench can investigate this idea only after paired uncertainty estimates and minimum per-slice coverage prevent early stopping from hiding regressions.
+
+### Research-backed portfolio experiments
+
+These concepts are **new to EvalBench and intentionally uncommon as a combined portfolio workflow**. They should not be described as globally unprecedented without a formal systematic literature and prior-art review.
+
+1. **Behavioral Contract Compiler:** represent minimum-functionality, invariance, and directional-expectation relationships as typed links between examples. Report invariance violation rate and directional success rate alongside ordinary accuracy.
+2. **Causal Evidence Sensitivity Lab:** evaluate the same automotive question with supported, evidence-removed, value-swapped, and contradictory contexts. Measure whether answers and abstentions change in the direction justified by the evidence rather than merely resembling a reference string.
+3. **Judge Reliability Passport:** generate a versioned report for each judge model and rubric containing human agreement, repeated-run consistency, order-flip rate, verbosity sensitivity, confusion matrices, and known unsupported slices. A judge cannot participate in a regression gate until its passport meets documented thresholds.
+4. **Confidence-Budgeted Regression Sampler:** begin with deterministic and historically fragile slices, then spend paid model calls only while the paired regression interval remains inconclusive. Always enforce minimum coverage per tag and compare the adaptive decision with a full-suite audit before claiming cost savings.
+
+The implementation order and commit boundaries for these experiments are recorded in `plan.md`. None of them are included in the current verified-capabilities list until its tests and completion criteria pass.
+
 ## Deployment status
 
 | Target | Status | Notes |
