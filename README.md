@@ -4,12 +4,12 @@
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-3.x-000000?logo=flask&logoColor=white)
-![Phase](https://img.shields.io/badge/status-Phase%201%20verified-2E8B57)
+![Phase](https://img.shields.io/badge/status-Phase%203%20active-2E8B57)
 ![Operation](https://img.shields.io/badge/tests-offline%20%26%20deterministic-F59E0B)
 
 EvalBench turns datasets, prompt versions, provider settings, and scoring rules into traceable evaluation runs. It stores per-example evidence, reuses identical responses through content-addressed caching, and makes regressions inspectable from a Flask dashboard.
 
-The default evaluation path is deliberately offline and deterministic. It proves that the infrastructure works without API keys or paid model calls. Phase 2 now adds an opt-in OpenAI Responses API adapter alongside pinned SQuAD v2 and HotpotQA samples. The adapter is contract-tested but has not been credentialed smoke-tested; automated dataset importers, RAG, and statistical model comparisons remain planned work.
+The default evaluation path is deliberately offline and deterministic. It proves that the infrastructure works without API keys or paid model calls. Phase 2 added an opt-in OpenAI Responses API adapter, a reproducible Hugging Face importer, and pinned SQuAD v2 and HotpotQA samples. The adapter is contract-tested but has not been credentialed smoke-tested; RAG and statistical model comparisons remain planned work.
 
 ## Why this project exists
 
@@ -32,12 +32,12 @@ EvalBench is designed around those questions. It emphasizes measurable behavior,
 | Versioned prompts | YAML prompt registry with variable validation and a prompt content hash |
 | Provider abstraction | Offline mock plus an opt-in, contract-tested OpenAI Responses API adapter |
 | Deterministic scoring | Exact match, token F1, answerability, and JSON Schema with readable evidence |
-| Reproducibility | Dataset, prompt, provider, and settings hashes are stored with each run |
+| Reproducibility | Dataset hashes and versioned prompt/provider identities are stored per run; cache keys hash the exact prompt, provider, dataset subset, and example |
 | Response caching | Identical requests are served from a content-addressed SQLite cache |
 | Audit trail | Append-only run summaries, per-example results, and persisted correlation IDs |
-| Durable workflow foundation | Idempotent queued-run preparation plus a memoized Inngest validation checkpoint |
+| Durable workflow execution | Inngest validation plus per-example generation checkpoints with cache-backed replay protection |
 | Web observability | Run dashboard, run-detail view, liveness, and database readiness routes |
-| Local quality gate | Sixty-six automated tests and Ruff static analysis pass locally |
+| Local quality gate | Seventy-two automated tests and Ruff static analysis pass locally |
 
 ## Architecture pipeline
 
@@ -46,7 +46,7 @@ flowchart LR
     D["Versioned JSONL dataset"] --> V["Pydantic validation"]
     P["Versioned YAML prompt"] --> V
     V --> H["Content hashing"]
-    H --> R["Evaluation runner"]
+    H --> R["Evaluation runner / Inngest workflow"]
     R --> C{"Response cache hit?"}
     C -- Yes --> O["Cached model output"]
     C -- No --> S["Provider protocol"]
@@ -85,7 +85,7 @@ sequenceDiagram
 
     User->>Runner: Prepare queued run with correlation ID
     Runner->>Store: Persist immutable run identity
-    User->>Runner: Start(dataset, prompt, provider)
+    User->>Runner: Start or resume(dataset, prompt, provider)
     loop Each validated example
         Runner->>Cache: Lookup content key
         alt Cached

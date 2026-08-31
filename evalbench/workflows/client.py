@@ -26,7 +26,7 @@ def init_inngest(app: Flask, settings: Settings) -> inngest.Inngest | None:
         signing_key=_secret_value(settings.inngest_signing_key),
         is_production=is_production,
     )
-    functions = create_workflow_functions(client, app)
+    functions = create_workflow_functions(client, app, settings)
 
     inngest.flask.serve(
         app,

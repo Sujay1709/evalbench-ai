@@ -1,6 +1,6 @@
 # EvalBench Project Plan
 
-> **Status: approved on August 15, 2026. Phase 0 and Phase 1 are complete; Phase 2 started on August 17, 2026.** Each phase must satisfy its tests and completion criteria before the next phase begins.
+> **Status: approved on August 15, 2026. Phases 0-2 are complete; Phase 3 durable workflows are active.** Each phase must satisfy its tests and completion criteria before the next phase begins.
 
 ## 1. Concept
 
@@ -355,7 +355,7 @@ The UI should feel like an engineering instrument rather than a generic admin te
 
 **Done when:** A deliberately interrupted evaluation resumes from the failed step, does not duplicate completed model calls or database writes, and exposes an actionable workflow trace.
 
-**Current progress:** The typed request event, secured Flask endpoint, persisted correlation IDs, idempotent queued-run preparation, and memoized persisted-run validation checkpoint are implemented. Generation, scoring, aggregation, failure finalization, and interruption-resume tests remain.
+**Current progress:** The typed request event, secured Flask endpoint, persisted correlation IDs, idempotent queued-run preparation, memoized persisted-run validation, and per-example durable response-generation checkpoints are implemented. Generation verifies registered artifacts before provider calls, persists responses in the content-addressed cache, retries transient failures, and resumes without repeating completed calls. Scoring, aggregation, failure finalization, and the complete end-to-end interruption-resume acceptance test remain.
 
 Inngest observes the evaluation functions it executes; it does not replace application-wide Flask logging or a general error tracker.
 
