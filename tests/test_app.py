@@ -40,3 +40,34 @@ def test_dashboard_and_run_detail_display_the_dataset_split(app, client):
     assert b"Holdout" in detail.data
     assert b"Correlation ID" in detail.data
     assert b"correlation-" in detail.data
+
+
+def test_failed_run_detail_displays_accessible_safe_diagnostic(app, client):
+    with app.app_context():
+        db.session.add(
+            EvaluationRun(
+                id="failed-test-run",
+                correlation_id="failed-correlation-id",
+                dataset_name="automotive_qa",
+                dataset_version="v1",
+                dataset_hash="b" * 64,
+                dataset_split="development",
+                prompt_id="automotive-qa",
+                prompt_version="v1",
+                provider="mock",
+                status="failed",
+                total_examples=3,
+                error_category="provider_retries_exhausted",
+                error_message="The provider remained unavailable after all retry attempts.",
+            )
+        )
+        db.session.commit()
+
+    detail = client.get("/runs/failed-test-run")
+
+    assert detail.status_code == 200
+    assert b'role="alert"' in detail.data
+    assert b"Evaluation did not complete" in detail.data
+    assert b"Provider Retries Exhausted" in detail.data
+    assert b"The provider remained unavailable after all retry attempts." in detail.data
+    assert b"failed-correlation-id" in detail.data

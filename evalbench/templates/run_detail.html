@@ -17,6 +17,24 @@
     </div>
   </section>
 
+  {% if run.status == "failed" %}
+    <section class="failure-summary" role="alert" aria-labelledby="failure-summary-title">
+      <p class="eyebrow">Action required</p>
+      <h2 id="failure-summary-title">Evaluation did not complete</h2>
+      <dl>
+        <div>
+          <dt>Error category</dt>
+          <dd>{{ (run.error_category or "unclassified") | replace('_', ' ') | title }}</dd>
+        </div>
+        <div>
+          <dt>Safe diagnostic</dt>
+          <dd>{{ run.error_message or "No diagnostic message was recorded." }}</dd>
+        </div>
+      </dl>
+      <p>Use correlation ID <code>{{ run.correlation_id }}</code> to locate the workflow trace.</p>
+    </section>
+  {% endif %}
+
   <section class="results-list">
     <div class="section-heading">
       <div>

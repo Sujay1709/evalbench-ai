@@ -36,8 +36,9 @@ EvalBench is designed around those questions. It emphasizes measurable behavior,
 | Response caching | Identical requests are served from a content-addressed SQLite cache |
 | Audit trail | Append-only run summaries, per-example results, and persisted correlation IDs |
 | Durable workflow execution | Inngest validation, generation, scoring, and atomic completion checkpoints with idempotent database replay protection |
+| Safe failure finalization | Exhausted retries produce categorized, sanitized diagnostics while preserving completed runs and partial evidence |
 | Web observability | Run dashboard, run-detail view, liveness, and database readiness routes |
-| Local quality gate | Eighty-six automated tests and Ruff static analysis pass locally |
+| Local quality gate | Ninety-three automated tests and Ruff static analysis pass locally |
 
 ## Architecture pipeline
 

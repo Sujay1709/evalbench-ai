@@ -23,6 +23,7 @@ class EvaluationRun(db.Model):
     total_examples = db.Column(db.Integer, nullable=False, default=0)
     passed_examples = db.Column(db.Integer, nullable=False, default=0)
     mean_score = db.Column(db.Float, nullable=False, default=0.0)
+    error_category = db.Column(db.String(48))
     error_message = db.Column(db.Text)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
     completed_at = db.Column(db.DateTime(timezone=True))
