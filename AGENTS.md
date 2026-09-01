@@ -7,7 +7,7 @@ Build EvalBench as a portfolio-quality, reproducible LLM evaluation and regressi
 ## Current scope
 
 - Phase 0, Phase 1, and the offline Phase 2 engine are complete; a credentialed provider smoke test remains optional.
-- Phase 3 is active: the Inngest event, secured endpoint, run-validation checkpoint, and durable response-generation checkpoints are implemented.
+- Phase 3 is active: the Inngest event, secured endpoint, run-validation, response-generation, and deterministic-scoring checkpoints are implemented.
 - Keep all automated tests offline. Do not add LlamaIndex or LangSmith tracing until their planned slice.
 
 ## Architecture rules

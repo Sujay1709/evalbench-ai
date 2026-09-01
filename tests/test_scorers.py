@@ -1,6 +1,7 @@
 import pytest
 
-from evalbench.datasets import ScorerSpec
+from evalbench.datasets import EvaluationExample, ScorerSpec
+from evalbench.runners.scoring import DeterministicScoringError, score_example_output
 from evalbench.scorers import score_response
 
 
@@ -90,3 +91,15 @@ def test_answerability_recognizes_a_substantive_answer():
 def test_token_f1_requires_at_least_one_accepted_answer():
     with pytest.raises(ValueError, match="accepted_answers"):
         ScorerSpec(type="token_f1")
+
+
+def test_example_scoring_rejects_an_invalid_json_schema_configuration():
+    example = EvaluationExample(
+        id="invalid-schema",
+        input={"question": "Return JSON"},
+        mock_response='{"answer": "value"}',
+        scorers=[ScorerSpec(type="json_schema", schema={"type": "not-a-json-type"})],
+    )
+
+    with pytest.raises(DeterministicScoringError, match="invalid JSON Schema"):
+        score_example_output(example.mock_response, example)
