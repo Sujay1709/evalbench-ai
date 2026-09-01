@@ -7,7 +7,7 @@ from evalbench.models import EvaluationRun, ExampleResult
 from evalbench.prompts import PromptDefinition
 from evalbench.providers import Provider
 from evalbench.runners.generation import generate_or_load_response
-from evalbench.scorers import score_response
+from evalbench.runners.scoring import score_example_output
 
 
 class EvaluationRunner:
@@ -111,9 +111,7 @@ class EvaluationRunner:
                     example,
                 )
 
-                scores = [score_response(generated.output_text, spec) for spec in example.scorers]
-                example_score = sum(score.score for score in scores) / len(scores)
-                passed = all(score.passed for score in scores)
+                scored = score_example_output(generated.output_text, example)
 
                 db.session.add(
                     ExampleResult(
@@ -121,9 +119,9 @@ class EvaluationRunner:
                         example_id=example.id,
                         input_json=example.input,
                         output_text=generated.output_text,
-                        passed=passed,
-                        score=example_score,
-                        scorer_details=[score.as_dict() for score in scores],
+                        passed=scored.passed,
+                        score=scored.score,
+                        scorer_details=scored.scorer_details,
                         cache_hit=generated.cache_hit,
                         latency_ms=generated.latency_ms,
                     )

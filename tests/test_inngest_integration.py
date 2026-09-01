@@ -7,7 +7,7 @@ import pytest
 from evalbench import create_app
 from evalbench.datasets import EvaluationSplit, load_jsonl
 from evalbench.extensions import db
-from evalbench.models import EvaluationRun, ResponseCache
+from evalbench.models import EvaluationRun, ExampleResult, ResponseCache
 from evalbench.prompts import load_prompt
 from evalbench.providers import MockProvider, ProviderResponseError, ProviderTransientError
 from evalbench.runners import EvaluationRunner
@@ -34,25 +34,36 @@ class DirectStep:
 class MemoizedInterruptingStep:
     """Model Inngest replay by retaining completed steps across an interruption."""
 
-    def __init__(self) -> None:
+    def __init__(self, interrupt_prefix: str = "generate-response-") -> None:
         self.calls: list[str] = []
         self.results: dict[str, object] = {}
         self.interrupted = False
+        self.interrupt_prefix = interrupt_prefix
 
     def run(self, step_id, handler):
         self.calls.append(step_id)
         if step_id in self.results:
             return self.results[step_id]
-        generated_steps = [key for key in self.results if key.startswith("generate-response-")]
+        completed_target_steps = [
+            key for key in self.results if key.startswith(self.interrupt_prefix)
+        ]
         if (
             not self.interrupted
-            and len(generated_steps) == 1
-            and step_id.startswith("generate-response-")
+            and len(completed_target_steps) == 1
+            and step_id.startswith(self.interrupt_prefix)
         ):
             self.interrupted = True
             raise RuntimeError("simulated worker interruption")
         result = handler()
         self.results[step_id] = result
+        return result
+
+
+class TamperingStep(DirectStep):
+    def run(self, step_id, handler):
+        result = super().run(step_id, handler)
+        if step_id.startswith("generate-response-"):
+            return {**result, "cache_key": "0" * 64}
         return result
 
 
@@ -248,7 +259,7 @@ def test_workflow_validation_short_circuits_completed_run(app):
     assert result["status"] == "already_completed"
 
 
-def test_workflow_generates_each_response_in_a_stable_cache_checkpoint(app):
+def test_workflow_generates_and_scores_each_response_in_stable_checkpoints(app):
     class CountingProvider(MockProvider):
         def __init__(self):
             self.calls = 0
@@ -268,17 +279,30 @@ def test_workflow_generates_each_response_in_a_stable_cache_checkpoint(app):
     )
 
     assert result == {
-        "status": "responses_generated",
+        "status": "responses_scored",
         "run_id": run_id,
         "generated_examples": 3,
+        "scored_examples": 3,
     }
     assert context.step.calls[0] == "validate-persisted-run"
-    assert len(context.step.calls) == 4
-    assert len(set(context.step.calls)) == 4
+    assert len(context.step.calls) == 7
+    assert len(set(context.step.calls)) == 7
+    assert sum(step.startswith("generate-response-") for step in context.step.calls) == 3
+    assert sum(step.startswith("score-response-") for step in context.step.calls) == 3
     assert provider.calls == 3
     with app.app_context():
-        assert db.session.get(EvaluationRun, run_id).status == "running"
+        stored_run = db.session.get(EvaluationRun, run_id)
+        assert stored_run.status == "running"
+        assert stored_run.passed_examples == 0
+        assert stored_run.mean_score == 0.0
         assert db.session.query(ResponseCache).count() == 3
+        stored_results = db.session.execute(
+            db.select(ExampleResult).where(ExampleResult.run_id == run_id)
+        ).scalars().all()
+        assert len(stored_results) == 3
+        assert all(result.passed for result in stored_results)
+        assert all(result.score == 1.0 for result in stored_results)
+        assert all(result.scorer_details for result in stored_results)
 
     replay = execute_evaluation_run(
         workflow_context(run_id, correlation_id),
@@ -286,8 +310,10 @@ def test_workflow_generates_each_response_in_a_stable_cache_checkpoint(app):
         provider_factory=lambda: provider,
     )
 
-    assert replay["status"] == "responses_generated"
+    assert replay["status"] == "responses_scored"
     assert provider.calls == 3
+    with app.app_context():
+        assert db.session.query(ExampleResult).count() == 3
 
 
 def test_workflow_resumes_after_interruption_without_duplicate_provider_calls(app):
@@ -316,10 +342,46 @@ def test_workflow_resumes_after_interruption_without_duplicate_provider_calls(ap
     assert provider.calls == 1
     result = execute_evaluation_run(context, app, provider_factory=lambda: provider)
 
-    assert result["status"] == "responses_generated"
+    assert result["status"] == "responses_scored"
     assert provider.calls == 3
     with app.app_context():
         assert db.session.query(ResponseCache).count() == 3
+        assert db.session.query(ExampleResult).count() == 3
+
+
+def test_workflow_resumes_scoring_without_duplicate_results(app):
+    class CountingProvider(MockProvider):
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, prompt, example):
+            self.calls += 1
+            return super().generate(prompt, example)
+
+    provider = CountingProvider()
+    run_id, correlation_id = prepare_automotive_run(app, provider)
+    step = MemoizedInterruptingStep(interrupt_prefix="score-response-")
+    context = SimpleNamespace(
+        event=SimpleNamespace(
+            data={"run_id": run_id, "correlation_id": correlation_id}
+        ),
+        step=step,
+    )
+
+    with pytest.raises(RuntimeError, match="simulated worker interruption"):
+        execute_evaluation_run(context, app, provider_factory=lambda: provider)
+
+    assert provider.calls == 3
+    with app.app_context():
+        assert db.session.query(ResponseCache).count() == 3
+        assert db.session.query(ExampleResult).count() == 1
+
+    result = execute_evaluation_run(context, app, provider_factory=lambda: provider)
+
+    assert result["status"] == "responses_scored"
+    assert provider.calls == 3
+    with app.app_context():
+        assert db.session.query(ExampleResult).count() == 3
 
 
 def test_workflow_leaves_transient_provider_failure_retriable(app):
@@ -400,3 +462,21 @@ def test_workflow_rejects_provider_identity_mismatch_before_generation(app):
 
     with app.app_context():
         assert db.session.query(ResponseCache).count() == 0
+
+
+def test_workflow_rejects_generation_checkpoint_for_wrong_cache_key(app):
+    provider = MockProvider()
+    run_id, correlation_id = prepare_automotive_run(app, provider)
+    context = SimpleNamespace(
+        event=SimpleNamespace(
+            data={"run_id": run_id, "correlation_id": correlation_id}
+        ),
+        step=TamperingStep(),
+    )
+
+    with pytest.raises(inngest.NonRetriableError, match="cache key does not match"):
+        execute_evaluation_run(context, app, provider_factory=lambda: provider)
+
+    with app.app_context():
+        assert db.session.query(ResponseCache).count() == 1
+        assert db.session.query(ExampleResult).count() == 0
