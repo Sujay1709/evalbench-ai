@@ -9,7 +9,12 @@ from evalbench.datasets import EvaluationSplit, load_jsonl
 from evalbench.extensions import db
 from evalbench.models import EvaluationRun, ExampleResult, ResponseCache
 from evalbench.prompts import load_prompt
-from evalbench.providers import MockProvider, ProviderResponseError, ProviderTransientError
+from evalbench.providers import (
+    MockProvider,
+    ProviderResponse,
+    ProviderResponseError,
+    ProviderTransientError,
+)
 from evalbench.runners import EvaluationRunner
 from evalbench.workflows.functions import (
     create_workflow_functions,
@@ -64,6 +69,40 @@ class TamperingStep(DirectStep):
         result = super().run(step_id, handler)
         if step_id.startswith("generate-response-"):
             return {**result, "cache_key": "0" * 64}
+        return result
+
+
+class SkippingScoreStep(DirectStep):
+    def __init__(self) -> None:
+        super().__init__()
+        self.skipped = False
+
+    def run(self, step_id, handler):
+        if not self.skipped and step_id.startswith("score-response-"):
+            self.calls.append(step_id)
+            self.skipped = True
+            return {"status": "simulated-missing-score"}
+        return super().run(step_id, handler)
+
+
+class CompletionInterruptingStep:
+    """Retain prior checkpoints while losing the completion result once."""
+
+    def __init__(self, *, after_handler: bool) -> None:
+        self.results: dict[str, object] = {}
+        self.interrupted = False
+        self.after_handler = after_handler
+
+    def run(self, step_id, handler):
+        if step_id in self.results:
+            return self.results[step_id]
+        if step_id == "aggregate-and-complete-run" and not self.interrupted:
+            self.interrupted = True
+            if self.after_handler:
+                handler()
+            raise RuntimeError("simulated completion interruption")
+        result = handler()
+        self.results[step_id] = result
         return result
 
 
@@ -279,22 +318,26 @@ def test_workflow_generates_and_scores_each_response_in_stable_checkpoints(app):
     )
 
     assert result == {
-        "status": "responses_scored",
+        "status": "completed",
         "run_id": run_id,
         "generated_examples": 3,
         "scored_examples": 3,
+        "passed_examples": 3,
+        "mean_score": 1.0,
     }
     assert context.step.calls[0] == "validate-persisted-run"
-    assert len(context.step.calls) == 7
-    assert len(set(context.step.calls)) == 7
+    assert context.step.calls[-1] == "aggregate-and-complete-run"
+    assert len(context.step.calls) == 8
+    assert len(set(context.step.calls)) == 8
     assert sum(step.startswith("generate-response-") for step in context.step.calls) == 3
     assert sum(step.startswith("score-response-") for step in context.step.calls) == 3
     assert provider.calls == 3
     with app.app_context():
         stored_run = db.session.get(EvaluationRun, run_id)
-        assert stored_run.status == "running"
-        assert stored_run.passed_examples == 0
-        assert stored_run.mean_score == 0.0
+        assert stored_run.status == "completed"
+        assert stored_run.passed_examples == 3
+        assert stored_run.mean_score == 1.0
+        assert stored_run.completed_at is not None
         assert db.session.query(ResponseCache).count() == 3
         stored_results = db.session.execute(
             db.select(ExampleResult).where(ExampleResult.run_id == run_id)
@@ -310,7 +353,14 @@ def test_workflow_generates_and_scores_each_response_in_stable_checkpoints(app):
         provider_factory=lambda: provider,
     )
 
-    assert replay["status"] == "responses_scored"
+    assert replay == {
+        "status": "already_completed",
+        "run_id": run_id,
+        "generated_examples": 0,
+        "scored_examples": 0,
+        "passed_examples": 3,
+        "mean_score": 1.0,
+    }
     assert provider.calls == 3
     with app.app_context():
         assert db.session.query(ExampleResult).count() == 3
@@ -342,7 +392,7 @@ def test_workflow_resumes_after_interruption_without_duplicate_provider_calls(ap
     assert provider.calls == 1
     result = execute_evaluation_run(context, app, provider_factory=lambda: provider)
 
-    assert result["status"] == "responses_scored"
+    assert result["status"] == "completed"
     assert provider.calls == 3
     with app.app_context():
         assert db.session.query(ResponseCache).count() == 3
@@ -378,10 +428,54 @@ def test_workflow_resumes_scoring_without_duplicate_results(app):
 
     result = execute_evaluation_run(context, app, provider_factory=lambda: provider)
 
-    assert result["status"] == "responses_scored"
+    assert result["status"] == "completed"
     assert provider.calls == 3
     with app.app_context():
         assert db.session.query(ExampleResult).count() == 3
+
+
+@pytest.mark.parametrize("after_handler", [False, True])
+def test_workflow_resumes_around_atomic_completion(app, after_handler):
+    class CountingProvider(MockProvider):
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, prompt, example):
+            self.calls += 1
+            return super().generate(prompt, example)
+
+    provider = CountingProvider()
+    run_id, correlation_id = prepare_automotive_run(app, provider)
+    step = CompletionInterruptingStep(after_handler=after_handler)
+    context = SimpleNamespace(
+        event=SimpleNamespace(
+            data={"run_id": run_id, "correlation_id": correlation_id}
+        ),
+        step=step,
+    )
+
+    with pytest.raises(RuntimeError, match="simulated completion interruption"):
+        execute_evaluation_run(context, app, provider_factory=lambda: provider)
+
+    with app.app_context():
+        interrupted_run = db.session.get(EvaluationRun, run_id)
+        expected_status = "completed" if after_handler else "running"
+        assert interrupted_run.status == expected_status
+        assert db.session.query(ExampleResult).count() == 3
+
+    result = execute_evaluation_run(context, app, provider_factory=lambda: provider)
+
+    expected_result_status = "already_completed" if after_handler else "completed"
+    assert result["status"] == expected_result_status
+    assert result["passed_examples"] == 3
+    assert result["mean_score"] == 1.0
+    assert provider.calls == 3
+    with app.app_context():
+        completed_run = db.session.get(EvaluationRun, run_id)
+        assert completed_run.status == "completed"
+        assert completed_run.passed_examples == 3
+        assert completed_run.mean_score == 1.0
+        assert completed_run.completed_at is not None
 
 
 def test_workflow_leaves_transient_provider_failure_retriable(app):
@@ -480,3 +574,118 @@ def test_workflow_rejects_generation_checkpoint_for_wrong_cache_key(app):
     with app.app_context():
         assert db.session.query(ResponseCache).count() == 1
         assert db.session.query(ExampleResult).count() == 0
+
+
+def test_workflow_aggregates_a_failed_example_into_final_metrics(app):
+    class OneFailureProvider(MockProvider):
+        def generate(self, prompt, example):
+            response = super().generate(prompt, example)
+            if example.id == "auto-002":
+                return ProviderResponse(
+                    text="incorrect vehicle category",
+                    latency_ms=response.latency_ms,
+                    metadata=response.metadata,
+                )
+            return response
+
+    provider = OneFailureProvider()
+    run_id, correlation_id = prepare_automotive_run(app, provider)
+
+    result = execute_evaluation_run(
+        workflow_context(run_id, correlation_id),
+        app,
+        provider_factory=lambda: provider,
+    )
+
+    assert result["status"] == "completed"
+    assert result["passed_examples"] == 2
+    assert result["mean_score"] == pytest.approx(2 / 3)
+    with app.app_context():
+        stored_run = db.session.get(EvaluationRun, run_id)
+        assert stored_run.passed_examples == 2
+        assert stored_run.mean_score == pytest.approx(2 / 3)
+
+
+def test_workflow_refuses_completion_when_an_expected_result_is_missing(app):
+    provider = MockProvider()
+    run_id, correlation_id = prepare_automotive_run(app, provider)
+    context = SimpleNamespace(
+        event=SimpleNamespace(
+            data={"run_id": run_id, "correlation_id": correlation_id}
+        ),
+        step=SkippingScoreStep(),
+    )
+
+    with pytest.raises(inngest.NonRetriableError, match="missing results"):
+        execute_evaluation_run(context, app, provider_factory=lambda: provider)
+
+    with app.app_context():
+        stored_run = db.session.get(EvaluationRun, run_id)
+        assert stored_run.status == "running"
+        assert stored_run.passed_examples == 0
+        assert stored_run.mean_score == 0.0
+        assert stored_run.completed_at is None
+        assert db.session.query(ExampleResult).count() == 2
+
+
+def test_workflow_refuses_completion_with_an_unexpected_result(app):
+    provider = MockProvider()
+    run_id, correlation_id = prepare_automotive_run(app, provider)
+    with app.app_context():
+        db.session.add(
+            ExampleResult(
+                run_id=run_id,
+                example_id="unexpected-example",
+                input_json={"question": "not in the dataset"},
+                output_text="unexpected",
+                passed=False,
+                score=0.0,
+                scorer_details=[{"scorer": "fixture"}],
+                cache_hit=True,
+                latency_ms=0.0,
+            )
+        )
+        db.session.commit()
+
+    with pytest.raises(inngest.NonRetriableError, match="unexpected results"):
+        execute_evaluation_run(
+            workflow_context(run_id, correlation_id),
+            app,
+            provider_factory=lambda: provider,
+        )
+
+    with app.app_context():
+        stored_run = db.session.get(EvaluationRun, run_id)
+        assert stored_run.status == "running"
+        assert stored_run.completed_at is None
+
+
+def test_workflow_rejects_conflicting_metrics_on_completed_run(app):
+    class CountingProvider(MockProvider):
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, prompt, example):
+            self.calls += 1
+            return super().generate(prompt, example)
+
+    provider = CountingProvider()
+    run_id, correlation_id = prepare_automotive_run(app, provider)
+    execute_evaluation_run(
+        workflow_context(run_id, correlation_id),
+        app,
+        provider_factory=lambda: provider,
+    )
+    with app.app_context():
+        run = db.session.get(EvaluationRun, run_id)
+        run.mean_score = 0.25
+        db.session.commit()
+
+    with pytest.raises(inngest.NonRetriableError, match="conflicting aggregate metrics"):
+        execute_evaluation_run(
+            workflow_context(run_id, correlation_id),
+            app,
+            provider_factory=lambda: provider,
+        )
+
+    assert provider.calls == 3
