@@ -1,7 +1,10 @@
 import hashlib
+import math
+from collections import Counter
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import inngest
 from flask import Flask
@@ -16,6 +19,7 @@ from evalbench.providers import (
     ProviderTransientError,
     build_provider,
 )
+from evalbench.runners.aggregation import AggregationError, aggregate_example_scores
 from evalbench.runners.generation import generate_or_load_response, response_cache_key
 from evalbench.runners.scoring import score_example_output
 from evalbench.workflows.artifacts import EvaluationArtifacts, load_run_artifacts
@@ -34,6 +38,19 @@ class GenerationCheckpoint(BaseModel):
     cache_key: str = Field(pattern=r"^[0-9a-f]{64}$")
     cache_hit: bool
     latency_ms: float = Field(ge=0)
+
+
+class CompletionCheckpoint(BaseModel):
+    """Non-sensitive final metrics returned by the completion checkpoint."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    status: Literal["completed", "already_completed"]
+    run_id: str
+    passed_examples: int = Field(ge=0)
+    total_examples: int = Field(gt=0)
+    mean_score: float = Field(ge=0, le=1)
+    completed_at: datetime
 
 
 def create_workflow_functions(
@@ -288,23 +305,143 @@ def _score_and_persist_example(
         }
 
 
+def _aggregate_and_complete_run(
+    app: Flask,
+    run_id: str,
+    artifacts: EvaluationArtifacts,
+) -> dict[str, str | float | int]:
+    expected_ids = {example.id for example in artifacts.dataset.examples}
+
+    with app.app_context():
+        run = db.session.get(EvaluationRun, run_id)
+        if run is None:
+            raise inngest.NonRetriableError(f"Evaluation run '{run_id}' does not exist")
+        if run.status not in {"running", "completed"}:
+            raise inngest.NonRetriableError(
+                f"Evaluation run '{run_id}' cannot complete from status '{run.status}'"
+            )
+
+        results = db.session.execute(
+            db.select(ExampleResult)
+            .where(ExampleResult.run_id == run_id)
+            .order_by(ExampleResult.example_id)
+        ).scalars().all()
+        actual_id_counts = Counter(result.example_id for result in results)
+        actual_ids = set(actual_id_counts)
+        missing_ids = sorted(expected_ids - actual_ids)
+        unexpected_ids = sorted(actual_ids - expected_ids)
+        duplicate_ids = sorted(
+            example_id for example_id, count in actual_id_counts.items() if count > 1
+        )
+        coverage_errors = []
+        if missing_ids:
+            coverage_errors.append(f"missing results: {', '.join(missing_ids)}")
+        if unexpected_ids:
+            coverage_errors.append(f"unexpected results: {', '.join(unexpected_ids)}")
+        if duplicate_ids:
+            coverage_errors.append(f"duplicate results: {', '.join(duplicate_ids)}")
+        if coverage_errors:
+            raise inngest.NonRetriableError(
+                f"Evaluation run '{run_id}' result coverage is invalid; "
+                + "; ".join(coverage_errors)
+            )
+
+        try:
+            metrics = aggregate_example_scores(
+                (result.passed, result.score) for result in results
+            )
+        except AggregationError as exc:
+            raise inngest.NonRetriableError(
+                f"Evaluation run '{run_id}' metrics are invalid: {exc}"
+            ) from exc
+        if metrics.total_examples != run.total_examples:
+            raise inngest.NonRetriableError(
+                f"Evaluation run '{run_id}' expected {run.total_examples} results but found "
+                f"{metrics.total_examples}"
+            )
+
+        if run.status == "completed":
+            if run.completed_at is None:
+                raise inngest.NonRetriableError(
+                    f"Completed evaluation run '{run_id}' has no completion timestamp"
+                )
+            if run.passed_examples != metrics.passed_examples or not math.isclose(
+                run.mean_score,
+                metrics.mean_score,
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            ):
+                raise inngest.NonRetriableError(
+                    f"Completed evaluation run '{run_id}' has conflicting aggregate metrics"
+                )
+            completion_status = "already_completed"
+        else:
+            run.passed_examples = metrics.passed_examples
+            run.mean_score = metrics.mean_score
+            run.status = "completed"
+            run.completed_at = datetime.now(UTC)
+            db.session.commit()
+            completion_status = "completed"
+
+        return {
+            "status": completion_status,
+            "run_id": run.id,
+            "passed_examples": run.passed_examples,
+            "total_examples": run.total_examples,
+            "mean_score": run.mean_score,
+            "completed_at": run.completed_at.isoformat(),
+        }
+
+
+def _complete_evaluation_run(
+    ctx: inngest.ContextSync,
+    app: Flask,
+    run_id: str,
+    artifacts: EvaluationArtifacts,
+) -> CompletionCheckpoint:
+    value = ctx.step.run(
+        "aggregate-and-complete-run",
+        lambda: _aggregate_and_complete_run(app, run_id, artifacts),
+    )
+    try:
+        checkpoint = CompletionCheckpoint.model_validate(value)
+    except ValidationError as exc:
+        raise inngest.NonRetriableError(
+            f"Completion checkpoint for evaluation run '{run_id}' is invalid"
+        ) from exc
+    if checkpoint.run_id != run_id:
+        raise inngest.NonRetriableError(
+            f"Completion checkpoint run '{checkpoint.run_id}' does not match '{run_id}'"
+        )
+    return checkpoint
+
+
 def execute_evaluation_run(
     ctx: inngest.ContextSync,
     app: Flask,
     *,
     provider_factory: Callable[[], Provider],
     project_root: Path = PROJECT_ROOT,
-) -> dict[str, str | int]:
-    """Validate a run, generate responses, and persist deterministic scores."""
+) -> dict[str, str | float | int]:
+    """Execute and atomically complete a durable evaluation run."""
 
     request = _parse_request(ctx)
     validation = validate_evaluation_run_request(ctx, app)
     if validation["status"] == "already_completed":
+        _, artifacts = _load_verified_artifacts(app, request, project_root)
+        completion = _complete_evaluation_run(
+            ctx,
+            app,
+            str(request.run_id),
+            artifacts,
+        )
         return {
-            "status": "already_completed",
+            "status": completion.status,
             "run_id": str(request.run_id),
             "generated_examples": 0,
             "scored_examples": 0,
+            "passed_examples": completion.passed_examples,
+            "mean_score": completion.mean_score,
         }
 
     run, artifacts = _load_verified_artifacts(app, request, project_root)
@@ -350,11 +487,19 @@ def execute_evaluation_run(
             ),
         )
 
+    completion = _complete_evaluation_run(
+        ctx,
+        app,
+        str(request.run_id),
+        artifacts,
+    )
     return {
-        "status": "responses_scored",
+        "status": completion.status,
         "run_id": str(request.run_id),
         "generated_examples": len(artifacts.dataset.examples),
         "scored_examples": len(artifacts.dataset.examples),
+        "passed_examples": completion.passed_examples,
+        "mean_score": completion.mean_score,
     }
 
 

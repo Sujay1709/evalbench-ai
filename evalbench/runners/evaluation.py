@@ -6,6 +6,7 @@ from evalbench.extensions import db
 from evalbench.models import EvaluationRun, ExampleResult
 from evalbench.prompts import PromptDefinition
 from evalbench.providers import Provider
+from evalbench.runners.aggregation import aggregate_example_scores
 from evalbench.runners.generation import generate_or_load_response
 from evalbench.runners.scoring import score_example_output
 
@@ -129,8 +130,11 @@ class EvaluationRunner:
 
             db.session.flush()
             stored_results = list(run.results)
-            run.passed_examples = sum(result.passed for result in stored_results)
-            run.mean_score = sum(result.score for result in stored_results) / len(stored_results)
+            metrics = aggregate_example_scores(
+                (result.passed, result.score) for result in stored_results
+            )
+            run.passed_examples = metrics.passed_examples
+            run.mean_score = metrics.mean_score
             run.status = "completed"
             run.completed_at = datetime.now(UTC)
             db.session.commit()
