@@ -355,7 +355,7 @@ The UI should feel like an engineering instrument rather than a generic admin te
 
 **Done when:** A deliberately interrupted evaluation resumes from the failed step, does not duplicate completed model calls or database writes, and exposes an actionable workflow trace.
 
-**Current progress:** The typed request event, secured Flask endpoint, persisted correlation IDs, idempotent queued-run preparation, memoized validation, per-example generation and scoring, and atomic aggregation/completion checkpoints are implemented. Successful runs verify exact result coverage, persist deterministic metrics once, and resume safely on either side of the completion commit. Failure finalization, the complete end-to-end interruption-resume acceptance test, and local Inngest Dev Server documentation remain.
+**Current progress:** The typed request event, secured Flask endpoint, persisted correlation IDs, idempotent validation/generation/scoring, and atomic successful-run completion are implemented. An Inngest failure handler now finalizes exhausted retries with sanitized categories, preserves partial evidence, and cannot overwrite completed runs. The complete end-to-end interruption-resume acceptance test and local Inngest Dev Server documentation remain.
 
 Inngest observes the evaluation functions it executes; it does not replace application-wide Flask logging or a general error tracker.
 

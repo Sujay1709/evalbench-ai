@@ -15,6 +15,7 @@ from evalbench.extensions import db
 from evalbench.models import EvaluationRun, ExampleResult, ResponseCache
 from evalbench.providers import (
     Provider,
+    ProviderConfigurationError,
     ProviderError,
     ProviderTransientError,
     build_provider,
@@ -26,6 +27,11 @@ from evalbench.workflows.artifacts import EvaluationArtifacts, load_run_artifact
 from evalbench.workflows.events import (
     EVALUATION_RUN_REQUESTED_EVENT,
     EvaluationRunRequestedData,
+)
+from evalbench.workflows.failures import (
+    FailureCategory,
+    finalize_evaluation_failure,
+    non_retriable_failure,
 )
 
 
@@ -67,6 +73,7 @@ def create_workflow_functions(
         name="Execute evaluation run",
         trigger=inngest.TriggerEvent(event=EVALUATION_RUN_REQUESTED_EVENT),
         idempotency="event.data.run_id",
+        on_failure=lambda ctx: finalize_evaluation_failure(ctx, app),
         retries=2,
     )(
         lambda ctx: execute_evaluation_run(
@@ -82,7 +89,8 @@ def _parse_request(ctx: inngest.ContextSync) -> EvaluationRunRequestedData:
     try:
         return EvaluationRunRequestedData.model_validate(ctx.event.data)
     except ValidationError as exc:
-        raise inngest.NonRetriableError(
+        raise non_retriable_failure(
+            FailureCategory.INVALID_REQUEST,
             "eval/run.requested contained invalid identifiers"
         ) from exc
 
@@ -94,19 +102,23 @@ def _validate_persisted_run(
     with app.app_context():
         run = db.session.get(EvaluationRun, str(request.run_id))
         if run is None:
-            raise inngest.NonRetriableError(
+            raise non_retriable_failure(
+                FailureCategory.INVALID_REQUEST,
                 f"Evaluation run '{request.run_id}' does not exist"
             )
         if run.correlation_id != str(request.correlation_id):
-            raise inngest.NonRetriableError(
+            raise non_retriable_failure(
+                FailureCategory.INVALID_REQUEST,
                 f"Evaluation run '{request.run_id}' has a different correlation ID"
             )
         if run.status == "failed":
-            raise inngest.NonRetriableError(
+            raise non_retriable_failure(
+                FailureCategory.WORKFLOW_STATE,
                 f"Evaluation run '{request.run_id}' is already failed"
             )
         if run.status not in {"queued", "running", "completed"}:
-            raise inngest.NonRetriableError(
+            raise non_retriable_failure(
+                FailureCategory.WORKFLOW_STATE,
                 f"Evaluation run '{request.run_id}' has unsupported status '{run.status}'"
             )
 
@@ -149,7 +161,8 @@ def _load_verified_artifacts(
             artifacts = load_run_artifacts(run, project_root=project_root)
             return run, artifacts
     except (OSError, ValueError) as exc:
-        raise inngest.NonRetriableError(
+        raise non_retriable_failure(
+            FailureCategory.CONFIGURATION,
             f"Evaluation run inputs are invalid: {exc}"
         ) from exc
 
@@ -160,13 +173,20 @@ def _build_verified_provider(
 ) -> Provider:
     try:
         provider = provider_factory()
-    except (ProviderError, ValueError) as exc:
-        raise inngest.NonRetriableError(
+    except (ProviderConfigurationError, ValueError) as exc:
+        raise non_retriable_failure(
+            FailureCategory.CONFIGURATION,
             f"Evaluation provider configuration is invalid: {exc}"
+        ) from exc
+    except ProviderError as exc:
+        raise non_retriable_failure(
+            FailureCategory.PROVIDER_RESPONSE,
+            f"Evaluation provider could not be initialized: {exc}",
         ) from exc
 
     if provider.name != run.provider:
-        raise inngest.NonRetriableError(
+        raise non_retriable_failure(
+            FailureCategory.CONFIGURATION,
             f"Configured provider '{provider.name}' does not match evaluation run provider "
             f"'{run.provider}'"
         )
@@ -201,8 +221,14 @@ def _generate_example_response(
             )
     except ProviderTransientError:
         raise
+    except ProviderConfigurationError as exc:
+        raise non_retriable_failure(
+            FailureCategory.CONFIGURATION,
+            f"Response generation configuration failed for example '{example.id}': {exc}",
+        ) from exc
     except (ProviderError, ValueError) as exc:
-        raise inngest.NonRetriableError(
+        raise non_retriable_failure(
+            FailureCategory.PROVIDER_RESPONSE,
             f"Response generation failed for example '{example.id}': {exc}"
         ) from exc
 
@@ -223,16 +249,19 @@ def _validate_generation_checkpoint(
     try:
         checkpoint = GenerationCheckpoint.model_validate(value)
     except ValidationError as exc:
-        raise inngest.NonRetriableError(
+        raise non_retriable_failure(
+            FailureCategory.WORKFLOW_STATE,
             f"Generation checkpoint for example '{expected_example_id}' is invalid"
         ) from exc
     if checkpoint.example_id != expected_example_id:
-        raise inngest.NonRetriableError(
+        raise non_retriable_failure(
+            FailureCategory.WORKFLOW_STATE,
             f"Generation checkpoint example '{checkpoint.example_id}' does not match "
             f"'{expected_example_id}'"
         )
     if checkpoint.cache_key != expected_cache_key:
-        raise inngest.NonRetriableError(
+        raise non_retriable_failure(
+            FailureCategory.WORKFLOW_STATE,
             f"Generation checkpoint cache key does not match example '{expected_example_id}'"
         )
     return checkpoint
@@ -249,7 +278,8 @@ def _score_and_persist_example(
     with app.app_context():
         cached_response = db.session.get(ResponseCache, checkpoint.cache_key)
         if cached_response is None:
-            raise inngest.NonRetriableError(
+            raise non_retriable_failure(
+                FailureCategory.PERSISTENCE_INTEGRITY,
                 f"Generated response cache entry is missing for example '{example.id}'"
             )
 
@@ -264,7 +294,8 @@ def _score_and_persist_example(
                 existing_result.input_json != example.input
                 or existing_result.output_text != cached_response.output_text
             ):
-                raise inngest.NonRetriableError(
+                raise non_retriable_failure(
+                    FailureCategory.PERSISTENCE_INTEGRITY,
                     f"Persisted score for example '{example.id}' conflicts with run inputs"
                 )
             return {
@@ -278,7 +309,8 @@ def _score_and_persist_example(
         try:
             scored = score_example_output(cached_response.output_text, example)
         except (TypeError, ValueError) as exc:
-            raise inngest.NonRetriableError(
+            raise non_retriable_failure(
+                FailureCategory.CONFIGURATION,
                 f"Deterministic scoring failed for example '{example.id}': {exc}"
             ) from exc
 
@@ -315,9 +347,13 @@ def _aggregate_and_complete_run(
     with app.app_context():
         run = db.session.get(EvaluationRun, run_id)
         if run is None:
-            raise inngest.NonRetriableError(f"Evaluation run '{run_id}' does not exist")
+            raise non_retriable_failure(
+                FailureCategory.INVALID_REQUEST,
+                f"Evaluation run '{run_id}' does not exist",
+            )
         if run.status not in {"running", "completed"}:
-            raise inngest.NonRetriableError(
+            raise non_retriable_failure(
+                FailureCategory.WORKFLOW_STATE,
                 f"Evaluation run '{run_id}' cannot complete from status '{run.status}'"
             )
 
@@ -341,7 +377,8 @@ def _aggregate_and_complete_run(
         if duplicate_ids:
             coverage_errors.append(f"duplicate results: {', '.join(duplicate_ids)}")
         if coverage_errors:
-            raise inngest.NonRetriableError(
+            raise non_retriable_failure(
+                FailureCategory.PERSISTENCE_INTEGRITY,
                 f"Evaluation run '{run_id}' result coverage is invalid; "
                 + "; ".join(coverage_errors)
             )
@@ -351,18 +388,21 @@ def _aggregate_and_complete_run(
                 (result.passed, result.score) for result in results
             )
         except AggregationError as exc:
-            raise inngest.NonRetriableError(
+            raise non_retriable_failure(
+                FailureCategory.PERSISTENCE_INTEGRITY,
                 f"Evaluation run '{run_id}' metrics are invalid: {exc}"
             ) from exc
         if metrics.total_examples != run.total_examples:
-            raise inngest.NonRetriableError(
+            raise non_retriable_failure(
+                FailureCategory.PERSISTENCE_INTEGRITY,
                 f"Evaluation run '{run_id}' expected {run.total_examples} results but found "
                 f"{metrics.total_examples}"
             )
 
         if run.status == "completed":
             if run.completed_at is None:
-                raise inngest.NonRetriableError(
+                raise non_retriable_failure(
+                    FailureCategory.PERSISTENCE_INTEGRITY,
                     f"Completed evaluation run '{run_id}' has no completion timestamp"
                 )
             if run.passed_examples != metrics.passed_examples or not math.isclose(
@@ -371,7 +411,8 @@ def _aggregate_and_complete_run(
                 rel_tol=0.0,
                 abs_tol=1e-12,
             ):
-                raise inngest.NonRetriableError(
+                raise non_retriable_failure(
+                    FailureCategory.PERSISTENCE_INTEGRITY,
                     f"Completed evaluation run '{run_id}' has conflicting aggregate metrics"
                 )
             completion_status = "already_completed"
@@ -406,11 +447,13 @@ def _complete_evaluation_run(
     try:
         checkpoint = CompletionCheckpoint.model_validate(value)
     except ValidationError as exc:
-        raise inngest.NonRetriableError(
+        raise non_retriable_failure(
+            FailureCategory.WORKFLOW_STATE,
             f"Completion checkpoint for evaluation run '{run_id}' is invalid"
         ) from exc
     if checkpoint.run_id != run_id:
-        raise inngest.NonRetriableError(
+        raise non_retriable_failure(
+            FailureCategory.WORKFLOW_STATE,
             f"Completion checkpoint run '{checkpoint.run_id}' does not match '{run_id}'"
         )
     return checkpoint

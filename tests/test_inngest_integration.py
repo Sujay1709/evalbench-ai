@@ -16,6 +16,12 @@ from evalbench.providers import (
     ProviderTransientError,
 )
 from evalbench.runners import EvaluationRunner
+from evalbench.workflows.failures import (
+    FAILURE_EVENT_NAME,
+    FailureCategory,
+    finalize_evaluation_failure,
+    non_retriable_failure,
+)
 from evalbench.workflows.functions import (
     create_workflow_functions,
     execute_evaluation_run,
@@ -115,6 +121,37 @@ def workflow_context(run_id, correlation_id):
     )
 
 
+def failure_context(
+    run_id,
+    correlation_id,
+    *,
+    error_name="ProviderTransientError",
+    error_message="temporary provider outage",
+    original_event_name="eval/run.requested",
+):
+    return SimpleNamespace(
+        event=SimpleNamespace(
+            name=FAILURE_EVENT_NAME,
+            data={
+                "error": {
+                    "name": error_name,
+                    "message": error_message,
+                    "stack": "sensitive stack trace",
+                },
+                "event": {
+                    "name": original_event_name,
+                    "data": {
+                        "run_id": str(run_id),
+                        "correlation_id": str(correlation_id),
+                    },
+                },
+                "function_id": "evalbench-eval-run",
+                "run_id": "inngest-failed-run-id",
+            },
+        )
+    )
+
+
 def add_run(app, *, run_id, correlation_id, status="queued"):
     with app.app_context():
         db.session.add(
@@ -175,6 +212,7 @@ def test_workflow_registration_uses_run_id_idempotency_and_bounded_retries(app):
     assert len(functions) == 1
     assert client.options["idempotency"] == "event.data.run_id"
     assert client.options["retries"] == 2
+    assert callable(client.options["on_failure"])
 
 
 def test_production_endpoint_rejects_unsigned_invocations(monkeypatch, tmp_path):
@@ -495,6 +533,11 @@ def test_workflow_leaves_transient_provider_failure_retriable(app):
 
     with app.app_context():
         assert db.session.query(ResponseCache).count() == 0
+        stored_run = db.session.get(EvaluationRun, run_id)
+        assert stored_run.status == "running"
+        assert stored_run.error_category is None
+        assert stored_run.error_message is None
+        assert stored_run.completed_at is None
 
 
 def test_workflow_marks_invalid_provider_response_non_retriable(app):
@@ -689,3 +732,154 @@ def test_workflow_rejects_conflicting_metrics_on_completed_run(app):
         )
 
     assert provider.calls == 3
+
+
+def test_failure_handler_finalizes_exhausted_provider_retries_without_secrets(app):
+    provider = MockProvider()
+    run_id, correlation_id = prepare_automotive_run(app, provider)
+    secret_message = "temporary outage with key sk-test-secret and full prompt"
+
+    result = finalize_evaluation_failure(
+        failure_context(
+            run_id,
+            correlation_id,
+            error_message=secret_message,
+        ),
+        app,
+    )
+
+    assert result == {
+        "status": "failed",
+        "run_id": run_id,
+        "correlation_id": correlation_id,
+        "error_category": "provider_retries_exhausted",
+    }
+    with app.app_context():
+        stored_run = db.session.get(EvaluationRun, run_id)
+        assert stored_run.status == "failed"
+        assert stored_run.error_category == "provider_retries_exhausted"
+        assert stored_run.error_message == (
+            "The provider remained unavailable after all retry attempts."
+        )
+        assert "sk-test-secret" not in stored_run.error_message
+        assert "prompt" not in stored_run.error_message
+        assert stored_run.completed_at is not None
+
+
+def test_failure_handler_preserves_tagged_category_and_is_idempotent(app):
+    provider = MockProvider()
+    run_id, correlation_id = prepare_automotive_run(app, provider)
+    tagged_error = non_retriable_failure(
+        FailureCategory.CONFIGURATION,
+        "OPENAI_API_KEY=sk-sensitive-value",
+    )
+    context = failure_context(
+        run_id,
+        correlation_id,
+        error_name="NonRetriableError",
+        error_message=str(tagged_error),
+    )
+
+    first_result = finalize_evaluation_failure(context, app)
+    with app.app_context():
+        first_completed_at = db.session.get(EvaluationRun, run_id).completed_at
+    replay_result = finalize_evaluation_failure(context, app)
+
+    assert first_result["error_category"] == "configuration"
+    assert replay_result["status"] == "already_failed"
+    assert replay_result["error_category"] == "configuration"
+    with app.app_context():
+        stored_run = db.session.get(EvaluationRun, run_id)
+        assert stored_run.completed_at == first_completed_at
+        assert stored_run.error_message == (
+            "The evaluation configuration is invalid or unavailable."
+        )
+        assert "sk-sensitive-value" not in stored_run.error_message
+
+
+def test_failure_handler_preserves_completed_run(app):
+    provider = MockProvider()
+    run_id, correlation_id = prepare_automotive_run(app, provider)
+    execute_evaluation_run(
+        workflow_context(run_id, correlation_id),
+        app,
+        provider_factory=lambda: provider,
+    )
+    with app.app_context():
+        completed_at = db.session.get(EvaluationRun, run_id).completed_at
+
+    result = finalize_evaluation_failure(
+        failure_context(run_id, correlation_id),
+        app,
+    )
+
+    assert result["status"] == "completed_preserved"
+    with app.app_context():
+        stored_run = db.session.get(EvaluationRun, run_id)
+        assert stored_run.status == "completed"
+        assert stored_run.completed_at == completed_at
+        assert stored_run.error_category is None
+        assert stored_run.error_message is None
+
+
+def test_failure_handler_preserves_partial_example_evidence(app):
+    provider = MockProvider()
+    run_id, correlation_id = prepare_automotive_run(app, provider)
+    with app.app_context():
+        db.session.add(
+            ExampleResult(
+                run_id=run_id,
+                example_id="auto-001",
+                input_json={"question": "partial result"},
+                output_text="internal combustion engine",
+                passed=True,
+                score=1.0,
+                scorer_details=[{"scorer": "exact_match"}],
+                cache_hit=False,
+                latency_ms=1.0,
+            )
+        )
+        db.session.commit()
+
+    finalize_evaluation_failure(
+        failure_context(run_id, correlation_id),
+        app,
+    )
+
+    with app.app_context():
+        stored_run = db.session.get(EvaluationRun, run_id)
+        assert stored_run.status == "failed"
+        assert len(stored_run.results) == 1
+        assert stored_run.results[0].example_id == "auto-001"
+
+
+def test_failure_handler_rejects_malformed_event_without_mutating_run(app):
+    provider = MockProvider()
+    run_id, _ = prepare_automotive_run(app, provider)
+    context = SimpleNamespace(
+        event=SimpleNamespace(name=FAILURE_EVENT_NAME, data={"unexpected": "payload"})
+    )
+
+    with pytest.raises(inngest.NonRetriableError, match="invalid evaluation metadata"):
+        finalize_evaluation_failure(context, app)
+
+    with app.app_context():
+        stored_run = db.session.get(EvaluationRun, run_id)
+        assert stored_run.status == "queued"
+        assert stored_run.error_category is None
+
+
+def test_failure_handler_rejects_correlation_mismatch_without_mutation(app):
+    provider = MockProvider()
+    run_id, _ = prepare_automotive_run(app, provider)
+
+    with pytest.raises(inngest.NonRetriableError, match="different correlation ID"):
+        finalize_evaluation_failure(
+            failure_context(run_id, uuid4()),
+            app,
+        )
+
+    with app.app_context():
+        stored_run = db.session.get(EvaluationRun, run_id)
+        assert stored_run.status == "queued"
+        assert stored_run.completed_at is None

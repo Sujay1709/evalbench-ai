@@ -39,14 +39,37 @@ def test_run_metadata_migrations_backfill_and_require_new_fields(tmp_path):
                 ),
                 {"dataset_hash": "a" * 64},
             )
+            connection.execute(
+                sa.text(
+                    """
+                    INSERT INTO evaluation_runs (
+                        id, dataset_name, dataset_version, dataset_hash,
+                        prompt_id, prompt_version, provider, status,
+                        total_examples, passed_examples, mean_score,
+                        error_message, created_at
+                    ) VALUES (
+                        'legacy-failed-run', 'automotive_qa', 'v1', :dataset_hash,
+                        'automotive-qa', 'v1', 'mock', 'failed',
+                        5, 0, 0.0, 'legacy failure', '2026-08-17 00:00:00'
+                    )
+                    """
+                ),
+                {"dataset_hash": "d" * 64},
+            )
 
         command.upgrade(config, "head")
 
         with db.engine.connect() as connection:
             migrated_run = connection.execute(
                 sa.text(
-                    "SELECT dataset_split, correlation_id "
+                    "SELECT dataset_split, correlation_id, error_category "
                     "FROM evaluation_runs WHERE id = 'legacy-run'"
+                )
+            ).one()
+            migrated_failed_run = connection.execute(
+                sa.text(
+                    "SELECT dataset_split, correlation_id, error_category "
+                    "FROM evaluation_runs WHERE id = 'legacy-failed-run'"
                 )
             ).one()
 
@@ -91,3 +114,7 @@ def test_run_metadata_migrations_backfill_and_require_new_fields(tmp_path):
 
     assert migrated_run.dataset_split == "legacy_mixed"
     assert migrated_run.correlation_id == "legacy-run"
+    assert migrated_run.error_category is None
+    assert migrated_failed_run.dataset_split == "legacy_mixed"
+    assert migrated_failed_run.correlation_id == "legacy-failed-run"
+    assert migrated_failed_run.error_category == "legacy_unclassified"
