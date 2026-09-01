@@ -1,6 +1,7 @@
 from datetime import date
 from pathlib import Path
 from typing import Annotated
+from uuid import UUID
 
 import typer
 from rich.console import Console
@@ -20,6 +21,7 @@ from evalbench.extensions import db
 from evalbench.prompts import load_prompt
 from evalbench.providers import build_provider
 from evalbench.runners import EvaluationRunner
+from evalbench.workflows.events import EvaluationRunRequestedData
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DATASET = PROJECT_ROOT / "datasets" / "automotive_qa" / "v1.jsonl"
@@ -27,6 +29,7 @@ DEFAULT_PROMPT = PROJECT_ROOT / "prompts" / "automotive_qa" / "v1.yaml"
 
 cli = typer.Typer(help="Run reproducible EvalBench experiments.")
 console = Console()
+error_console = Console(stderr=True)
 
 
 @cli.callback()
@@ -73,6 +76,66 @@ def run_evaluation(
             f"[bold]Mean score:[/bold] {run.mean_score:.3f}"
         )
         console.print(f"[bold]Dataset split:[/bold] {run.dataset_split}")
+
+
+@cli.command("queue")
+def queue_evaluation(
+    dataset_path: Annotated[Path, typer.Option("--dataset")] = DEFAULT_DATASET,
+    prompt_path: Annotated[Path, typer.Option("--prompt")] = DEFAULT_PROMPT,
+    split: Annotated[
+        EvaluationSplit,
+        typer.Option("--split", help="Queue one leakage-safe dataset split."),
+    ] = EvaluationSplit.DEVELOPMENT,
+    correlation_id: Annotated[
+        UUID | None,
+        typer.Option(
+            "--correlation-id",
+            help="Reuse this ID to safely retry an uncertain event dispatch.",
+        ),
+    ] = None,
+) -> None:
+    """Prepare a durable evaluation and dispatch it through Inngest."""
+
+    settings = Settings()
+    app = create_app()
+    inngest_client = app.extensions.get("inngest")
+    if inngest_client is None:
+        error_console.print(
+            "[red]Queue unavailable:[/red] durable workflows are disabled in read-only mode.",
+        )
+        raise typer.Exit(code=1)
+
+    provider = build_provider(settings)
+    with app.app_context():
+        db.create_all()
+        dataset = load_jsonl(dataset_path).select_split(split)
+        prompt = load_prompt(prompt_path)
+        run = EvaluationRunner(provider).prepare_run(
+            dataset,
+            prompt,
+            correlation_id=correlation_id,
+        )
+        run_id = run.id
+        persisted_correlation_id = run.correlation_id
+
+    event = EvaluationRunRequestedData(
+        run_id=UUID(run_id),
+        correlation_id=UUID(persisted_correlation_id),
+    ).to_inngest_event()
+    try:
+        event_ids = inngest_client.send_sync(event)
+    except Exception as exc:
+        error_console.print(
+            f"[red]Dispatch failed:[/red] run {run_id} remains queued.\n"
+            "Start the Inngest Dev Server and retry with "
+            f"--correlation-id {persisted_correlation_id}.",
+        )
+        raise typer.Exit(code=1) from exc
+
+    console.print(f"[green]Queued EvalBench run {run_id}[/green]")
+    console.print(f"Correlation ID: {persisted_correlation_id}")
+    console.print(f"Inngest event ID: {', '.join(event_ids)}")
+    console.print("Trace: http://localhost:8288")
 
 
 @cli.command("import-hf")
@@ -133,7 +196,7 @@ def import_huggingface(
         )
         result = import_huggingface_dataset(spec)
     except HuggingFaceImportError as exc:
-        console.print(f"[red]Import failed:[/red] {exc}", err=True)
+        error_console.print(f"[red]Import failed:[/red] {exc}")
         raise typer.Exit(code=1) from exc
 
     console.print(

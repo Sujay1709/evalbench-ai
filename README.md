@@ -4,7 +4,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-3.x-000000?logo=flask&logoColor=white)
-![Phase](https://img.shields.io/badge/status-Phase%203%20active-2E8B57)
+![Phase](https://img.shields.io/badge/status-Phase%203%20complete-2E8B57)
 ![Operation](https://img.shields.io/badge/tests-offline%20%26%20deterministic-F59E0B)
 
 EvalBench turns datasets, prompt versions, provider settings, and scoring rules into traceable evaluation runs. It stores per-example evidence, reuses identical responses through content-addressed caching, and makes regressions inspectable from a Flask dashboard.
@@ -38,7 +38,7 @@ EvalBench is designed around those questions. It emphasizes measurable behavior,
 | Durable workflow execution | Inngest validation, generation, scoring, and atomic completion checkpoints with idempotent database replay protection |
 | Safe failure finalization | Exhausted retries produce categorized, sanitized diagnostics while preserving completed runs and partial evidence |
 | Web observability | Run dashboard, run-detail view, liveness, and database readiness routes |
-| Local quality gate | Ninety-three automated tests and Ruff static analysis pass locally |
+| Local quality gate | Ninety-six automated tests and Ruff static analysis pass locally |
 
 ## Architecture pipeline
 
@@ -78,6 +78,7 @@ The Flask routes only handle HTTP concerns. Dataset loading, prompt rendering, p
 ```mermaid
 sequenceDiagram
     participant User as CLI / future job
+    participant Workflow as Inngest workflow
     participant Runner as Evaluation runner
     participant Cache as Response cache
     participant Provider as System under test
@@ -86,7 +87,8 @@ sequenceDiagram
 
     User->>Runner: Prepare queued run with correlation ID
     Runner->>Store: Persist immutable run identity
-    User->>Runner: Start or resume(dataset, prompt, provider)
+    User->>Workflow: Send eval/run.requested IDs
+    Workflow->>Runner: Start or resume checkpointed evaluation
     loop Each validated example
         Runner->>Cache: Lookup content key
         alt Cached
@@ -164,6 +166,45 @@ python -m evalbench.cli run --split development
 
 The first run generates deterministic offline responses. The second run should mark every response as coming from the cache while producing the same scores and content hashes.
 
+### Durable workflow with the local Inngest Dev Server
+
+The durable path uses the same offline mock provider but runs each side effect in a separately memoized Inngest checkpoint. No Inngest Cloud account or API key is required.
+
+Start Flask in the first terminal:
+
+```bash
+source .venv/bin/activate
+INNGEST_DEV=1 flask --app evalbench:create_app run --debug --port 5000
+```
+
+Start the Dev Server in the second terminal:
+
+```bash
+npx --ignore-scripts=false inngest-cli@latest dev \
+  --no-discovery \
+  -u http://127.0.0.1:5000/api/inngest
+```
+
+Open [http://localhost:8288](http://localhost:8288). In a third terminal, explicitly sync the SDK endpoint and then queue an offline development run:
+
+```bash
+curl --fail --request PUT http://127.0.0.1:5000/api/inngest
+source .venv/bin/activate
+INNGEST_DEV=1 python -m evalbench.cli queue --split development
+```
+
+The sync response should include `"ok": true`, and the Dev Server should show the `evalbench-eval-run` function. The queue command prints the EvalBench run ID, correlation ID, and Inngest event ID. Use those identifiers to connect the database record, run-detail page, and Dev Server trace.
+
+To inspect recovery behavior without paid calls, open the completed trace, select a `generate-response-*` step, and choose **Rerun from step**. Inngest restores earlier checkpoint outputs; EvalBench's response cache and idempotent result writes prevent duplicate provider calls and rows. The offline acceptance test also injects a deterministic interruption after the first generation checkpoint and verifies that the resumed workflow finishes with exactly three provider calls, three cache entries, and three unique results.
+
+If event dispatch fails, the queued run is retained. Retry safely with the correlation ID printed by the command:
+
+```bash
+INNGEST_DEV=1 python -m evalbench.cli queue \
+  --split development \
+  --correlation-id <CORRELATION_ID>
+```
+
 ### Optional live-provider run
 
 Set the following values only in the untracked local `.env` file:
@@ -190,11 +231,11 @@ This is an opt-in paid integration. The public demo must keep `LLM_PROVIDER=mock
 
 ## What has actually been tested
 
-The following checks were most recently run locally on August 29, 2026:
+The following checks were most recently run locally on September 1, 2026:
 
 | Check | Result |
 |---|---|
-| `pytest` | 66 tests passed |
+| `pytest` | 96 tests passed |
 | `ruff check .` | Passed |
 | Database migration | Upgrade completed and all three application tables were created |
 | Development CLI evaluation | 3 of 3 deterministic fixtures passed; all responses generated |
@@ -202,6 +243,8 @@ The following checks were most recently run locally on August 29, 2026:
 | Holdout CLI evaluation | 2 of 2 deterministic fixtures passed after explicit split selection |
 | Flask dashboard | Homepage and run-detail evidence rendered successfully |
 | Health routes | Liveness and database readiness returned successful responses |
+| Durable recovery | An interrupted checkpoint resumed without duplicate provider calls, cache entries, or result rows |
+| Inngest Dev Server | Local function registration, event dispatch, completed trace, and step rerun verified with the offline provider |
 
 The 100% fixture result validates the mechanics of the runner and scorers. It is **not** presented as evidence that a real LLM has perfect automotive knowledge.
 
@@ -346,7 +389,7 @@ The implementation order and commit boundaries for these experiments are recorde
 | Docker | **Prepared, not yet verified** | Container definition exists; image build and runtime smoke test remain |
 | Render | **Not deployed** | Deployment procedure and inactivity mitigation are documented in `Deploy.md` |
 | External uptime monitor | **Not configured** | `/health` is ready for a permitted monitoring service |
-| Inngest background jobs | **Validation checkpoint verified** | Typed events, correlation IDs, queued-run preparation, idempotent request validation, endpoint discovery, and production signatures are tested; generation and scoring steps remain |
+| Inngest background jobs | **Locally verified** | The Dev Server registers the workflow, accepts queued events, displays traces, and reruns checkpointed work without duplicate application records |
 | Public portfolio demo | **Planned** | Must use a read-only seeded demo or authenticated, rate-limited live runs |
 
 The deploy status is intentionally explicit: a Dockerfile or deployment document is not the same as a verified public deployment.
@@ -366,8 +409,8 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
 
 - [x] **Phase 0:** Flask foundation, typed settings, persistence, migrations, health checks, and tests
 - [x] **Phase 1:** versioned automotive data, prompt registry, provider protocol, deterministic scoring, persisted runs, and response caching
-- [ ] **Phase 2 — in progress:** HF samples, QA scorers, the streamed importer, split enforcement, and the opt-in provider adapter are complete; a credentialed provider smoke test remains
-- [ ] **Phase 3 — in progress:** typed events, the shared Inngest client, endpoint security, persisted correlation IDs, queued-run preparation, and durable request validation are implemented; generation, scoring, aggregation, and recovery tests remain
+- [x] **Phase 2:** HF samples, QA scorers, the streamed importer, split enforcement, and the opt-in provider adapter; a credentialed provider smoke test remains optional
+- [x] **Phase 3:** secured Inngest workflows with idempotent validation, generation, scoring, completion/failure handling, local traces, and interruption-recovery acceptance coverage
 - [ ] **Phase 4:** baseline comparison dashboard, latency/cost analysis, and retrieval metrics
 - [ ] **Phase 5:** calibrated LLM judge and human-reviewed evaluation subset
 - [ ] **Phase 6:** CI regression policy with statistically justified thresholds

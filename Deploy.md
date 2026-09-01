@@ -94,6 +94,45 @@ Rules:
 
 Run these checks only after their files and commands have been implemented.
 
+### Verified local durable workflow
+
+The Phase 3 workflow can be exercised without Inngest Cloud or a paid model. Use three terminals from the repository root.
+
+Terminal 1 — Flask and the registered Inngest endpoint:
+
+```bash
+source .venv/bin/activate
+INNGEST_DEV=1 flask --app evalbench:create_app run --debug --port 5000
+```
+
+Terminal 2 — local Dev Server and trace UI:
+
+```bash
+npx --ignore-scripts=false inngest-cli@latest dev \
+  --no-discovery \
+  -u http://127.0.0.1:5000/api/inngest
+```
+
+Terminal 3 — prepare a queued run and dispatch its identifier-only event:
+
+```bash
+curl --fail --request PUT http://127.0.0.1:5000/api/inngest
+source .venv/bin/activate
+INNGEST_DEV=1 python -m evalbench.cli queue --split development
+```
+
+The sync response should contain `"ok": true`. Open `http://localhost:8288`, confirm that `evalbench-eval-run` is registered, locate the event ID printed by the queue command, and inspect its step trace. The event contains only `run_id` and `correlation_id`; provider keys, prompts, and dataset rows remain in application-owned storage.
+
+For a deterministic recovery exercise, select a `generate-response-*` trace step and choose **Rerun from step**. Confirm the new trace completes, then inspect the same EvalBench run and verify it still has exactly three unique example results. The automated acceptance test additionally interrupts execution after one generation checkpoint and verifies resume behavior without duplicate model calls or database writes.
+
+If dispatch fails before a response is received, use the printed correlation ID to retry the same queued identity instead of creating another run:
+
+```bash
+INNGEST_DEV=1 python -m evalbench.cli queue \
+  --split development \
+  --correlation-id <CORRELATION_ID>
+```
+
 ### Native Python workflow
 
 **Future commands:**
