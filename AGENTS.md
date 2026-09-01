@@ -6,9 +6,9 @@ Build EvalBench as a portfolio-quality, reproducible LLM evaluation and regressi
 
 ## Current scope
 
-- Phase 0 and Phase 1 are complete.
-- Phase 2 is active: external dataset provenance, the Hugging Face importer, QA scorers, split enforcement, and an opt-in OpenAI provider are implemented; a credentialed provider smoke test remains.
-- Keep all automated tests offline. Do not add LlamaIndex, LangSmith tracing, or Inngest workflows until their planned slice.
+- Phase 0, Phase 1, and the offline Phase 2 engine are complete; a credentialed provider smoke test remains optional.
+- Phase 3 is active: the Inngest event, secured endpoint, run-validation checkpoint, and durable response-generation checkpoints are implemented.
+- Keep all automated tests offline. Do not add LlamaIndex or LangSmith tracing until their planned slice.
 
 ## Architecture rules
 

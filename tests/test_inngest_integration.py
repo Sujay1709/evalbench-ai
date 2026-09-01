@@ -5,13 +5,19 @@ import inngest
 import pytest
 
 from evalbench import create_app
+from evalbench.datasets import EvaluationSplit, load_jsonl
 from evalbench.extensions import db
-from evalbench.models import EvaluationRun
+from evalbench.models import EvaluationRun, ResponseCache
+from evalbench.prompts import load_prompt
+from evalbench.providers import MockProvider, ProviderResponseError, ProviderTransientError
+from evalbench.runners import EvaluationRunner
 from evalbench.workflows.functions import (
     create_workflow_functions,
+    execute_evaluation_run,
     validate_evaluation_run_request,
     validate_event_identifiers,
 )
+from tests.conftest import PROJECT_ROOT
 
 
 class DirectStep:
@@ -23,6 +29,31 @@ class DirectStep:
     def run(self, step_id, handler):
         self.calls.append(step_id)
         return handler()
+
+
+class MemoizedInterruptingStep:
+    """Model Inngest replay by retaining completed steps across an interruption."""
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+        self.results: dict[str, object] = {}
+        self.interrupted = False
+
+    def run(self, step_id, handler):
+        self.calls.append(step_id)
+        if step_id in self.results:
+            return self.results[step_id]
+        generated_steps = [key for key in self.results if key.startswith("generate-response-")]
+        if (
+            not self.interrupted
+            and len(generated_steps) == 1
+            and step_id.startswith("generate-response-")
+        ):
+            self.interrupted = True
+            raise RuntimeError("simulated worker interruption")
+        result = handler()
+        self.results[step_id] = result
+        return result
 
 
 def workflow_context(run_id, correlation_id):
@@ -52,6 +83,16 @@ def add_run(app, *, run_id, correlation_id, status="queued"):
             )
         )
         db.session.commit()
+
+
+def prepare_automotive_run(app, provider):
+    dataset = load_jsonl(
+        PROJECT_ROOT / "datasets" / "automotive_qa" / "v1.jsonl"
+    ).select_split(EvaluationSplit.DEVELOPMENT)
+    prompt = load_prompt(PROJECT_ROOT / "prompts" / "automotive_qa" / "v1.yaml")
+    with app.app_context():
+        run = EvaluationRunner(provider).prepare_run(dataset, prompt)
+        return run.id, run.correlation_id
 
 
 def test_development_app_serves_registered_inngest_function(app, client):
@@ -205,3 +246,157 @@ def test_workflow_validation_short_circuits_completed_run(app):
     )
 
     assert result["status"] == "already_completed"
+
+
+def test_workflow_generates_each_response_in_a_stable_cache_checkpoint(app):
+    class CountingProvider(MockProvider):
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, prompt, example):
+            self.calls += 1
+            return super().generate(prompt, example)
+
+    provider = CountingProvider()
+    run_id, correlation_id = prepare_automotive_run(app, provider)
+    context = workflow_context(run_id, correlation_id)
+
+    result = execute_evaluation_run(
+        context,
+        app,
+        provider_factory=lambda: provider,
+    )
+
+    assert result == {
+        "status": "responses_generated",
+        "run_id": run_id,
+        "generated_examples": 3,
+    }
+    assert context.step.calls[0] == "validate-persisted-run"
+    assert len(context.step.calls) == 4
+    assert len(set(context.step.calls)) == 4
+    assert provider.calls == 3
+    with app.app_context():
+        assert db.session.get(EvaluationRun, run_id).status == "running"
+        assert db.session.query(ResponseCache).count() == 3
+
+    replay = execute_evaluation_run(
+        workflow_context(run_id, correlation_id),
+        app,
+        provider_factory=lambda: provider,
+    )
+
+    assert replay["status"] == "responses_generated"
+    assert provider.calls == 3
+
+
+def test_workflow_resumes_after_interruption_without_duplicate_provider_calls(app):
+    class CountingProvider(MockProvider):
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, prompt, example):
+            self.calls += 1
+            return super().generate(prompt, example)
+
+    provider = CountingProvider()
+    run_id, correlation_id = prepare_automotive_run(app, provider)
+    step = MemoizedInterruptingStep()
+    context = SimpleNamespace(
+        event=SimpleNamespace(
+            data={"run_id": run_id, "correlation_id": correlation_id}
+        ),
+        step=step,
+    )
+
+    with pytest.raises(RuntimeError, match="simulated worker interruption"):
+        execute_evaluation_run(context, app, provider_factory=lambda: provider)
+
+    assert step.interrupted is True
+    assert provider.calls == 1
+    result = execute_evaluation_run(context, app, provider_factory=lambda: provider)
+
+    assert result["status"] == "responses_generated"
+    assert provider.calls == 3
+    with app.app_context():
+        assert db.session.query(ResponseCache).count() == 3
+
+
+def test_workflow_leaves_transient_provider_failure_retriable(app):
+    class TransientProvider(MockProvider):
+        def generate(self, prompt, example):
+            raise ProviderTransientError("temporary outage")
+
+    provider = TransientProvider()
+    run_id, correlation_id = prepare_automotive_run(app, provider)
+
+    with pytest.raises(ProviderTransientError, match="temporary outage"):
+        execute_evaluation_run(
+            workflow_context(run_id, correlation_id),
+            app,
+            provider_factory=lambda: provider,
+        )
+
+    with app.app_context():
+        assert db.session.query(ResponseCache).count() == 0
+
+
+def test_workflow_marks_invalid_provider_response_non_retriable(app):
+    class EmptyProvider(MockProvider):
+        def generate(self, prompt, example):
+            raise ProviderResponseError("empty response")
+
+    provider = EmptyProvider()
+    run_id, correlation_id = prepare_automotive_run(app, provider)
+
+    with pytest.raises(inngest.NonRetriableError, match="empty response"):
+        execute_evaluation_run(
+            workflow_context(run_id, correlation_id),
+            app,
+            provider_factory=lambda: provider,
+        )
+
+
+def test_workflow_rejects_changed_dataset_before_provider_call(app):
+    class CountingProvider(MockProvider):
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, prompt, example):
+            self.calls += 1
+            return super().generate(prompt, example)
+
+    provider = CountingProvider()
+    run_id, correlation_id = prepare_automotive_run(app, provider)
+    with app.app_context():
+        run = db.session.get(EvaluationRun, run_id)
+        run.dataset_hash = "f" * 64
+        db.session.commit()
+
+    with pytest.raises(inngest.NonRetriableError, match="content hash"):
+        execute_evaluation_run(
+            workflow_context(run_id, correlation_id),
+            app,
+            provider_factory=lambda: provider,
+        )
+
+    assert provider.calls == 0
+
+
+def test_workflow_rejects_provider_identity_mismatch_before_generation(app):
+    provider = MockProvider()
+    run_id, correlation_id = prepare_automotive_run(app, provider)
+    with app.app_context():
+        run = db.session.get(EvaluationRun, run_id)
+        run.provider = "openai:different-model:max128"
+        db.session.commit()
+
+    with pytest.raises(inngest.NonRetriableError, match="does not match"):
+        execute_evaluation_run(
+            workflow_context(run_id, correlation_id),
+            app,
+            provider_factory=lambda: provider,
+        )
+
+    with app.app_context():
+        assert db.session.query(ResponseCache).count() == 0
