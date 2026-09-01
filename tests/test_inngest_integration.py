@@ -404,7 +404,7 @@ def test_workflow_generates_and_scores_each_response_in_stable_checkpoints(app):
         assert db.session.query(ExampleResult).count() == 3
 
 
-def test_workflow_resumes_after_interruption_without_duplicate_provider_calls(app):
+def test_recovery_acceptance_resumes_without_duplicate_calls_or_writes(app):
     class CountingProvider(MockProvider):
         def __init__(self):
             self.calls = 0
@@ -428,13 +428,33 @@ def test_workflow_resumes_after_interruption_without_duplicate_provider_calls(ap
 
     assert step.interrupted is True
     assert provider.calls == 1
+    with app.app_context():
+        interrupted_run = db.session.get(EvaluationRun, run_id)
+        assert interrupted_run.status == "running"
+        assert interrupted_run.correlation_id == correlation_id
+        assert db.session.query(ResponseCache).count() == 1
+        assert db.session.query(ExampleResult).count() == 0
+
     result = execute_evaluation_run(context, app, provider_factory=lambda: provider)
 
     assert result["status"] == "completed"
     assert provider.calls == 3
     with app.app_context():
+        completed_run = db.session.get(EvaluationRun, run_id)
+        assert completed_run.status == "completed"
+        assert completed_run.correlation_id == correlation_id
+        assert completed_run.completed_at is not None
         assert db.session.query(ResponseCache).count() == 3
-        assert db.session.query(ExampleResult).count() == 3
+        stored_results = db.session.execute(
+            db.select(ExampleResult)
+            .where(ExampleResult.run_id == run_id)
+            .order_by(ExampleResult.example_id)
+        ).scalars().all()
+        assert [result.example_id for result in stored_results] == [
+            "auto-001",
+            "auto-002",
+            "auto-003",
+        ]
 
 
 def test_workflow_resumes_scoring_without_duplicate_results(app):

@@ -7,7 +7,8 @@ Build EvalBench as a portfolio-quality, reproducible LLM evaluation and regressi
 ## Current scope
 
 - Phase 0, Phase 1, and the offline Phase 2 engine are complete; a credentialed provider smoke test remains optional.
-- Phase 3 is active: the Inngest event, secured endpoint, validation, generation, scoring, atomic completion, and safe failed-run finalization are implemented.
+- Phase 3 is complete: the secured Inngest workflow, queue command, durable checkpoints, failure finalization, local trace workflow, and recovery acceptance coverage are implemented.
+- Phase 4 is next: build evidence-backed baseline/candidate comparisons before adding model-judge features.
 - Keep all automated tests offline. Do not add LlamaIndex or LangSmith tracing until their planned slice.
 
 ## Architecture rules
@@ -28,6 +29,7 @@ pytest
 ruff check .
 flask --app evalbench:create_app run --debug
 python -m evalbench.cli run --split development
+INNGEST_DEV=1 python -m evalbench.cli queue --split development
 ```
 
 ## Quality expectations
