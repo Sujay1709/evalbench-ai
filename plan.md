@@ -361,6 +361,13 @@ Inngest observes the evaluation functions it executes; it does not replace appli
 
 ### Phase 4 - Dashboard and comparisons
 
+**Current progress:** The framework-independent paired comparison engine is
+implemented with immutable reports, benchmark/split compatibility checks, exact
+result pairing, aggregate consistency validation, score deltas, and pass/fail
+transitions. An offline persisted-run test identifies an intentionally degraded
+example. Bootstrap intervals, tag/difficulty slices, the comparison dashboard,
+cost/latency reporting, and final regression drill-down acceptance remain.
+
 **Concept:** Turn raw results into evidence a reviewer can understand.
 
 **Build:**

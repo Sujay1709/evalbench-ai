@@ -66,6 +66,41 @@ The Flask routes only handle HTTP concerns. Dataset loading, prompt rendering, p
 
 ## Evaluation workflow
 
+### Compare completed runs (Phase 4)
+
+The paired comparison engine reports candidate-minus-baseline score and pass-rate
+changes, plus improved, regressed, unchanged, newly passing, and newly failing
+examples. It reads existing results without generating responses or changing runs:
+
+```python
+from evalbench import create_app
+from evalbench.comparisons import compare_runs
+from evalbench.extensions import db
+from evalbench.models import EvaluationRun
+
+app = create_app()
+with app.app_context():
+    baseline = db.session.get(EvaluationRun, "<baseline-run-id>")
+    candidate = db.session.get(EvaluationRun, "<candidate-run-id>")
+    if baseline is None or candidate is None:
+        raise ValueError("Choose two existing run IDs from the dashboard")
+    comparison = compare_runs(baseline, candidate)
+    print(comparison.mean_score_delta, comparison.newly_failing)
+    for example in comparison.examples:
+        if example.change == "regressed":
+            print(example.example_id, example.score_delta)
+```
+
+Both runs must be completed and use the same dataset name, version, content hash,
+and development/holdout split. Prompt and provider may differ. Results are paired
+by example ID and returned in sorted order; incomplete coverage, inconsistent
+aggregate metrics, and conflicting stored inputs raise `ComparisonError`.
+Legacy mixed-split runs are excluded. Score changes and pass/fail transitions are
+reported independently: a partial-credit improvement need not cross a passing threshold.
+Confidence intervals and the comparison dashboard remain later Phase 4 slices.
+
+### Evaluation execution
+
 1. **Load and validate** a pinned dataset and prompt definition.
 2. **Hash the inputs** so a run can be reproduced and compared later.
 3. **Render one prompt per example** using only declared template variables.
