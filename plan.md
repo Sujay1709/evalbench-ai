@@ -365,7 +365,10 @@ Inngest observes the evaluation functions it executes; it does not replace appli
 implemented with immutable reports, benchmark/split compatibility checks, exact
 result pairing, aggregate consistency validation, score deltas, and pass/fail
 transitions. An offline persisted-run test identifies an intentionally degraded
-example. Bootstrap intervals, tag/difficulty slices, the comparison dashboard,
+example. Paired percentile bootstrap intervals now report mean/median deltas,
+reproducible seeds and method metadata, with small-sample and constant-delta
+advisories; offline tests check agreement with SciPy's paired reference.
+Tag/difficulty slices, the comparison dashboard,
 cost/latency reporting, and final regression drill-down acceptance remain.
 
 **Concept:** Turn raw results into evidence a reviewer can understand.

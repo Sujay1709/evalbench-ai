@@ -1,5 +1,10 @@
 """Read-only, paired comparisons of completed evaluation runs."""
 
+from evalbench.comparisons.bootstrap import (
+    BootstrapInterval,
+    PairedBootstrapResult,
+    paired_bootstrap,
+)
 from evalbench.comparisons.paired import (
     ComparisonError,
     ExampleComparison,
@@ -7,4 +12,12 @@ from evalbench.comparisons.paired import (
     compare_runs,
 )
 
-__all__ = ["ComparisonError", "ExampleComparison", "RunComparison", "compare_runs"]
+__all__ = [
+    "BootstrapInterval",
+    "PairedBootstrapResult",
+    "paired_bootstrap",
+    "ComparisonError",
+    "ExampleComparison",
+    "RunComparison",
+    "compare_runs",
+]
