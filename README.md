@@ -97,7 +97,38 @@ by example ID and returned in sorted order; incomplete coverage, inconsistent
 aggregate metrics, and conflicting stored inputs raise `ComparisonError`.
 Legacy mixed-split runs are excluded. Score changes and pass/fail transitions are
 reported independently: a partial-credit improvement need not cross a passing threshold.
-Confidence intervals and the comparison dashboard remain later Phase 4 slices.
+The comparison dashboard remains a later Phase 4 slice.
+
+To estimate uncertainty across paired examples:
+
+```python
+from evalbench.comparisons import paired_bootstrap
+
+intervals = paired_bootstrap(comparison, confidence_level=0.95, n_resamples=10_000, seed=42)
+print(intervals.mean_delta)  # estimate, lower, upper
+print(intervals.median_delta)  # median of per-example differences
+print(intervals.warnings)
+```
+
+Each resample draws example pairs together with replacement. The report gives
+percentile intervals for the mean and median of candidate-minus-baseline score
+differences, along with sample size, confidence level, seed, resample count,
+PCG64 generator, NumPy version, and linear quantile method. Repeating the same
+inputs and settings in the same environment gives the same report, regardless
+of example order. Resampling uses bounded batches to limit intermediate memory.
+
+At least two pairs are required. Fewer than 30 pairs trigger an advisory, not a
+guarantee that larger samples are sufficient. A constant observed difference
+produces a zero-width interval with a warning. Our small fixtures validate the
+implementation; they do not support reliable model-selection claims. The method
+assumes independent, representative examples and does not capture repeated-call
+model randomness or account for dependent question families. An interval crossing
+zero does not establish equivalence. Statistical CI release gates remain Phase 6.
+
+The implementation follows the [paired percentile bootstrap procedure](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.bootstrap.html)
+and uses [NumPy linear quantiles](https://numpy.org/doc/stable/reference/generated/numpy.quantile.html).
+Options accept finite confidence levels strictly between 0 and 1, 100–100,000
+resamples, and a nonnegative integer seed.
 
 ### Evaluation execution
 
