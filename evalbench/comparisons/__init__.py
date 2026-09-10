@@ -11,8 +11,12 @@ from evalbench.comparisons.paired import (
     RunComparison,
     compare_runs,
 )
+from evalbench.comparisons.segments import SegmentComparison, SegmentSummary, compare_segments
 
 __all__ = [
+    "SegmentComparison",
+    "SegmentSummary",
+    "compare_segments",
     "BootstrapInterval",
     "PairedBootstrapResult",
     "paired_bootstrap",

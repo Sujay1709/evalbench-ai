@@ -368,8 +368,11 @@ transitions. An offline persisted-run test identifies an intentionally degraded
 example. Paired percentile bootstrap intervals now report mean/median deltas,
 reproducible seeds and method metadata, with small-sample and constant-delta
 advisories; offline tests check agreement with SciPy's paired reference.
-Tag/difficulty slices, the comparison dashboard,
-cost/latency reporting, and final regression drill-down acceptance remain.
+Tag/difficulty summaries now verify the original selected dataset's content hash
+and report sample sizes, score/pass deltas, transitions, and example IDs. Tags
+overlap without duplicate counting; difficulty groups partition examples.
+The comparison dashboard, cost/latency reporting, and final regression drill-down
+acceptance remain.
 
 **Concept:** Turn raw results into evidence a reviewer can understand.
 

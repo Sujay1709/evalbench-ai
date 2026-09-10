@@ -130,6 +130,37 @@ and uses [NumPy linear quantiles](https://numpy.org/doc/stable/reference/generat
 Options accept finite confidence levels strictly between 0 and 1, 100–100,000
 resamples, and a nonnegative integer seed.
 
+To inspect hidden regressions by tag and difficulty, supply the original dataset
+used by the runs (inside the same app context as the comparison example above):
+
+```python
+from evalbench.comparisons import compare_segments
+from evalbench.datasets import EvaluationSplit, load_jsonl
+
+dataset = load_jsonl("datasets/automotive_qa/v1.jsonl").select_split(
+    EvaluationSplit(baseline.dataset_split)
+)
+segments = compare_segments(baseline, candidate, dataset)
+for segment in segments.tags + segments.difficulties:
+    print(segment.dimension, segment.label, segment.sample_size,
+          segment.mean_score_delta, segment.newly_failing, segment.example_ids)
+```
+
+The dataset name, version, selected split, recomputed content hash, and example
+coverage must match the runs. If validation fails, restore the original dataset
+artifact and select the recorded split; do not relabel historical results.
+Reports are immutable and do not write to the database or call a model.
+
+Each segment reports baseline/candidate mean scores and pass rates, their deltas,
+score improvement/regression counts, pass/fail transitions, and sorted example IDs.
+Tags overlap: a row contributes once to each distinct tag, so tag counts must not
+be added together as a benchmark total. Untagged rows use `label=None`, distinct
+from any literal tag. Difficulty groups partition the examples in easy/medium/hard
+order; absent groups are omitted. Singleton groups are valid descriptive summaries.
+These breakdowns are exploratory, not significance tests or release gates; many
+small groups can make chance differences look important. Always inspect sample size
+and the underlying examples before drawing conclusions.
+
 ### Evaluation execution
 
 1. **Load and validate** a pinned dataset and prompt definition.
