@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ pair.example_id }} · Paired evidence · EvalBench{% endblock %}
+{% block content %}
+<section class="comparison-header">
+  <a class="back-link" href="{{ url_for('web.comparison', baseline=baseline.id, candidate=candidate.id) }}#examples">← Back to comparison</a>
+  <p class="eyebrow">Paired evidence · {{ pair.change }}</p><h1>{{ pair.example_id }}</h1>
+  <p>Score delta {{ '%+.3f' | format(pair.score_delta) }} · {{ baseline.dataset_split }} split</p>
+</section>
+<section class="result-card"><h2>Shared input</h2><pre>{{ before.input_json | tojson(indent=2) }}</pre></section>
+<div class="evidence-grid">
+{% for label, run, result in [('Baseline', baseline, before), ('Candidate', candidate, after)] %}
+<section class="result-card">
+  <h2>{{ label }}</h2>
+  <p><a href="{{ url_for('web.run_detail', run_id=run.id) }}">{{ run.id }}</a></p>
+  <p>{{ run.prompt_id }} {{ run.prompt_version }} · {{ run.provider }}</p>
+  <p><strong>{{ 'Pass' if result.passed else 'Fail' }}</strong> · score {{ '%.3f' | format(result.score) }}</p>
+  <h3>Output</h3><pre>{{ result.output_text }}</pre>
+  <h3>Scorer evidence</h3><pre>{{ result.scorer_details | tojson(indent=2) }}</pre>
+</section>
+{% endfor %}
+</div>
+{% endblock %}

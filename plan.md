@@ -371,7 +371,11 @@ advisories; offline tests check agreement with SciPy's paired reference.
 Tag/difficulty summaries now verify the original selected dataset's content hash
 and report sample sizes, score/pass deltas, transitions, and example IDs. Tags
 overlap without duplicate counting; difficulty groups partition examples.
-The comparison dashboard, cost/latency reporting, and final regression drill-down
+The read-only comparison dashboard and paired evidence drill-down are implemented
+with run selection, score-change filters, bootstrap advisories, and verified
+segment summaries. Offline route tests cover incompatible runs, missing metadata,
+safe output escaping, and no writes. Browser visual/accessibility acceptance,
+cost/latency reporting, leaderboard/Pareto views, and final regression drill-down
 acceptance remain.
 
 **Concept:** Turn raw results into evidence a reviewer can understand.
