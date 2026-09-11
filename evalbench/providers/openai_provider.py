@@ -1,3 +1,4 @@
+import math
 from time import perf_counter
 from typing import Any
 
@@ -25,6 +26,8 @@ class OpenAIProvider:
         max_retries: int = 2,
         max_output_tokens: int = 128,
         client: Any | None = None,
+        input_usd_per_million: float | None = None,
+        output_usd_per_million: float | None = None,
     ) -> None:
         if not api_key.strip():
             raise ProviderConfigurationError("OPENAI_API_KEY is required for the OpenAI provider")
@@ -34,6 +37,13 @@ class OpenAIProvider:
             raise ProviderConfigurationError("OPENAI_MAX_OUTPUT_TOKENS must be at least 16")
 
         self.model = model
+        prices = (input_usd_per_million, output_usd_per_million)
+        if prices != (None, None) and any(
+            type(price) not in (int, float) or not math.isfinite(price) or price < 0
+            for price in prices
+        ):
+            raise ProviderConfigurationError("Provide two finite nonnegative prices, or neither")
+        self.prices = prices
         self.max_output_tokens = max_output_tokens
         self.name = f"openai:{model}:max{max_output_tokens}"
         self._client = client or OpenAI(
@@ -77,6 +87,18 @@ class OpenAIProvider:
             "total_tokens": getattr(usage, "total_tokens", None),
             "stored": False,
         }
+        if self.prices != (None, None) and all(
+            type(metadata[key]) is int and metadata[key] >= 0
+            for key in ("input_tokens", "output_tokens")
+        ):
+            input_price, output_price = self.prices
+            metadata["estimated_cost_usd"] = (
+                metadata["input_tokens"] * input_price + metadata["output_tokens"] * output_price
+            ) / 1_000_000
+            metadata["cost_basis"] = (
+                f"user-configured USD/million: input={input_price}, output={output_price}; "
+                "excludes discounts, retries and other fees"
+            )
         return ProviderResponse(
             text=output_text,
             latency_ms=(perf_counter() - started) * 1000,

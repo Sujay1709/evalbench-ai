@@ -29,10 +29,23 @@ def test_second_run_reuses_cached_responses(app):
         assert first_run.total_examples == 3
         assert first_run.pass_rate == 1.0
         assert not any(result.cache_hit for result in first_run.results)
+        assert all(
+            result.usage_json
+            == {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "estimated_cost_usd": 0.0,
+                "cost_basis": "offline mock; no API calls",
+            }
+            for result in first_run.results
+        )
 
         assert second_run.status == "completed"
         assert second_run.mean_score == first_run.mean_score
         assert all(result.cache_hit for result in second_run.results)
+        assert all(
+            result.usage_json == first_run.results[0].usage_json for result in second_run.results
+        )
 
 
 def test_prepare_run_persists_queued_identity_without_provider_call(app):

@@ -44,6 +44,18 @@
   {% else %}<p>{{ advisory }}</p>{% endif %}
 </section>
 <section class="comparison-section">
+  {% from "efficiency.html" import summary, value %}
+  <h2>Quality has an operating cost</h2>
+  <div class="evidence-grid">{% for label, item in [('Baseline', efficiencies[0]), ('Candidate', efficiencies[1])] %}
+    <article class="result-card"><h3>{{ label }}</h3>{{ summary(item) }}</article>
+  {% endfor %}</div>
+  {% set before = efficiencies[0] %}{% set after = efficiencies[1] %}
+  <p>Candidate minus baseline generation-equivalent cost (USD):
+    {{ value(after.estimated_generation_cost_usd - before.estimated_generation_cost_usd, '%+.6f') if after.estimated_generation_cost_usd is not none and before.estimated_generation_cost_usd is not none else 'Unknown' }}.
+    Median generation latency change (ms):
+    {{ value(after.median_generation_ms - before.median_generation_ms, '%+.2f') if after.median_generation_ms is not none and before.median_generation_ms is not none else 'Unknown' }}.</p>
+</section>
+<section class="comparison-section">
   <h2>Where did behavior change?</h2>
   {% if segments %}
   <p>Tags overlap; do not add their counts. Difficulty groups partition examples. Small groups are descriptive, not significance tests.</p>

@@ -5,6 +5,13 @@ from evalbench.comparisons.bootstrap import (
     PairedBootstrapResult,
     paired_bootstrap,
 )
+from evalbench.comparisons.efficiency import (
+    BenchmarkBoard,
+    EfficiencySummary,
+    LeaderboardEntry,
+    build_leaderboards,
+    summarize_efficiency,
+)
 from evalbench.comparisons.paired import (
     ComparisonError,
     ExampleComparison,
@@ -14,6 +21,11 @@ from evalbench.comparisons.paired import (
 from evalbench.comparisons.segments import SegmentComparison, SegmentSummary, compare_segments
 
 __all__ = [
+    "BenchmarkBoard",
+    "EfficiencySummary",
+    "LeaderboardEntry",
+    "build_leaderboards",
+    "summarize_efficiency",
     "SegmentComparison",
     "SegmentSummary",
     "compare_segments",

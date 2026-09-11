@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "efficiency.html" import value %}
+{% block title %}Benchmark leaderboards · EvalBench{% endblock %}
+{% block content %}
+<section class="comparison-header"><p class="eyebrow">Quality · cost · latency</p><h1>Trade-offs, not one winner.</h1>
+<p>Ranked by mean score within each identical benchmark and split. The Pareto frontier contains runs not strictly beaten on both cost and quality. It is descriptive, not a significance test.</p></section>
+{% if excluded %}<p>{{ excluded | length }} incomplete, legacy, or incompatible runs excluded.</p>{% endif %}
+{% for board in boards %}
+<section class="comparison-section">
+  <h2>{{ board.identity[0] }} · {{ board.identity[1] }} · {{ board.identity[3] }}</h2>
+  <p>Content hash: <code>{{ board.identity[2] }}</code></p>
+  {% set known = board.entries | rejectattr('pareto', 'none') | list %}
+  {% if known %}
+  {% set scale = known | map(attribute='efficiency.estimated_generation_cost_usd') | max %}
+  <svg class="pareto-chart" viewBox="0 0 640 320" role="img" aria-label="Cost versus quality. Exact values and frontier membership are listed in the table below.">
+    <line x1="70" y1="260" x2="590" y2="260" /><line x1="70" y1="260" x2="70" y2="30" />
+    <text x="70" y="285">$0</text><text x="490" y="285">${{ '%.6f' | format(scale) }}</text>
+    <text x="25" y="260">0</text><text x="25" y="40">1</text>
+    <text x="150" y="310">Generation-equivalent cost (USD) →</text>
+    <text x="75" y="20">Mean score ↑</text>
+    {% for entry in known %}
+    {% set x = 70 + (entry.efficiency.estimated_generation_cost_usd / scale * 500 if scale > 0 else 0) %}
+    {% set y = 260 - entry.mean_score * 220 %}
+    {% if entry.pareto %}<rect x="{{ x - 6 }}" y="{{ y - 6 }}" width="12" height="12" class="frontier" />{% else %}<circle cx="{{ x }}" cy="{{ y }}" r="6" />{% endif %}
+    {% endfor %}
+  </svg>
+  <p>Squares: frontier · Circles: dominated. Overlapping points may coincide; every run is listed below. Unknown costs are excluded from the chart.</p>
+  {% else %}<p>No complete cost measurements yet. Quality rankings remain available.</p>{% endif %}
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Benchmark leaderboard">
+  <table><caption>Quality-ranked runs · generation-equivalent estimates, not bills</caption>
+  <thead><tr><th scope="col">Run / system</th><th scope="col" aria-sort="descending">Mean score</th><th scope="col">Cost USD</th><th scope="col">Median / P95 ms</th><th scope="col">Cache hits</th><th scope="col">Pareto</th></tr></thead>
+  <tbody>{% for entry in board.entries %}<tr>
+    <th scope="row"><a href="{{ url_for('web.run_detail', run_id=entry.run_id) }}">{{ entry.run_id[:8] }}</a><br>{{ entry.provider }}<br>{{ entry.prompt }}</th>
+    <td>{{ '%.3f' | format(entry.mean_score) }}</td>
+    <td>{{ value(entry.efficiency.estimated_generation_cost_usd, '%.6f') }}</td>
+    <td>{{ value(entry.efficiency.median_generation_ms) }} / {{ value(entry.efficiency.p95_generation_ms) }}</td>
+    <td>{{ entry.efficiency.cache_hits }} / {{ entry.efficiency.examples }}</td>
+    <td>{{ 'Unknown' if entry.pareto is none else 'Frontier' if entry.pareto else 'Dominated' }}</td>
+  </tr>{% endfor %}</tbody></table></div>
+</section>
+{% else %}<div class="empty-state"><h2>No comparable completed runs</h2><p>Run an offline evaluation, then return here.</p></div>{% endfor %}
+{% endblock %}
