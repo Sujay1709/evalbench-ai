@@ -55,6 +55,7 @@ class ExampleResult(db.Model):
     scorer_details = db.Column(db.JSON, nullable=False)
     cache_hit = db.Column(db.Boolean, nullable=False, default=False)
     latency_ms = db.Column(db.Float, nullable=False, default=0.0)
+    usage_json = db.Column(db.JSON, nullable=True)
 
     run = db.relationship("EvaluationRun", back_populates="results")
 

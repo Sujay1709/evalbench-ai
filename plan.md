@@ -1,6 +1,6 @@
 # EvalBench Project Plan
 
-> **Status: approved on August 15, 2026. Phases 0-3 are complete; Phase 4 dashboard comparisons are next.** Each phase must satisfy its tests and completion criteria before the next phase begins.
+> **Status: approved on August 15, 2026. Phases 0-3 are complete; Phase 4 implementation is complete on its final branch, pending merge and browser acceptance.** Each phase must satisfy its tests and completion criteria before the next phase begins.
 
 ## 1. Concept
 
@@ -374,9 +374,13 @@ overlap without duplicate counting; difficulty groups partition examples.
 The read-only comparison dashboard and paired evidence drill-down are implemented
 with run selection, score-change filters, bootstrap advisories, and verified
 segment summaries. Offline route tests cover incompatible runs, missing metadata,
-safe output escaping, and no writes. Browser visual/accessibility acceptance,
-cost/latency reporting, leaderboard/Pareto views, and final regression drill-down
-acceptance remain.
+safe output escaping, and no writes. Per-result usage snapshots now preserve tokens,
+explicit pricing bases, and cost estimates without backfilling historical unknowns.
+Run, comparison, and leaderboard views report generated-response median/P95 latency,
+cache behavior, generation-equivalent/new-response cost, and compatible-benchmark
+Pareto status. Automated regression drill-down acceptance is complete. The final PR
+merge and browser checks at 375px/desktop with keyboard navigation remain before
+Phase 4 may be declared complete on `main`.
 
 **Concept:** Turn raw results into evidence a reviewer can understand.
 

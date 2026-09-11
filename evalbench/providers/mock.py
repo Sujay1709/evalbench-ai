@@ -16,5 +16,12 @@ class MockProvider:
         return ProviderResponse(
             text=output,
             latency_ms=latency_ms,
-            metadata={"offline": True, "prompt_characters": len(prompt)},
+            metadata={
+                "offline": True,
+                "prompt_characters": len(prompt),
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "estimated_cost_usd": 0.0,
+                "cost_basis": "offline mock; no API calls",
+            },
         )

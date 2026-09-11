@@ -20,4 +20,6 @@ def build_provider(settings: Settings) -> Provider:
         timeout_seconds=settings.openai_timeout_seconds,
         max_retries=settings.openai_max_retries,
         max_output_tokens=settings.openai_max_output_tokens,
+        input_usd_per_million=settings.openai_input_usd_per_million,
+        output_usd_per_million=settings.openai_output_usd_per_million,
     )

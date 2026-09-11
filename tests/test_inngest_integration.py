@@ -384,6 +384,7 @@ def test_workflow_generates_and_scores_each_response_in_stable_checkpoints(app):
         assert all(result.passed for result in stored_results)
         assert all(result.score == 1.0 for result in stored_results)
         assert all(result.scorer_details for result in stored_results)
+        assert all(result.usage_json["estimated_cost_usd"] == 0 for result in stored_results)
 
     replay = execute_evaluation_run(
         workflow_context(run_id, correlation_id),

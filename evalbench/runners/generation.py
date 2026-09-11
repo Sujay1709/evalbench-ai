@@ -1,12 +1,13 @@
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from evalbench.datasets import EvaluationExample
 from evalbench.extensions import db
 from evalbench.models import ResponseCache
 from evalbench.prompts import PromptDefinition
 from evalbench.providers import Provider
+from evalbench.providers.usage import usage_snapshot
 
 
 def _canonical_json(value: object) -> str:
@@ -36,6 +37,7 @@ class GeneratedResponse:
     output_text: str
     latency_ms: float
     cache_hit: bool
+    usage: dict = field(default_factory=dict)
 
 
 def generate_or_load_response(
@@ -57,6 +59,7 @@ def generate_or_load_response(
             output_text=cached_response.output_text,
             latency_ms=0.0,
             cache_hit=True,
+            usage=usage_snapshot(cached_response.response_metadata),
         )
 
     rendered_prompt = prompt.render(example.input)
@@ -77,4 +80,5 @@ def generate_or_load_response(
         output_text=provider_response.text,
         latency_ms=provider_response.latency_ms,
         cache_hit=False,
+        usage=usage_snapshot(provider_response.metadata),
     )

@@ -121,6 +121,40 @@ and follow **Back to comparison**. Check keyboard focus, 375px and desktop layou
 and long output wrapping. Automated route tests cover rendering and safe escaping;
 browser-based visual/accessibility acceptance remains pending.
 
+### Cost, latency, and leaderboard interpretation
+
+Open `/leaderboard` to compare quality, cost, and generated-response latency only
+within the exact same dataset name, version, content hash, and split. Run-detail
+and comparison pages show the same recorded efficiency evidence. Median and P95
+latency exclude cache-hit zeros; otherwise caching would make provider latency look
+artificially fast. Small samples remain descriptive.
+
+EvalBench reports **generation-equivalent cost** for all recorded responses and
+**new-response cost** only for responses generated during that run. Estimates cover
+successful stored responses; retries, discounts, and other provider fees may not be
+represented. The pricing basis is displayed. Missing or invalid measurements are
+shown as **Unknown**, never silently converted to zero.
+
+The Pareto view marks a run dominated only when another compatible run has at least
+as much quality and no more cost, with one strict improvement. Equal points can both
+remain on the frontier. Unknown-cost runs stay in the table but are excluded from
+Pareto classification. The SVG has an exact table alternative and uses marker shape
+plus text, not color alone.
+
+New runs snapshot provider token usage and configured estimates per result. Mock
+runs record zero because they make no paid API call. OpenAI estimates are opt-in and
+require both values below; copy pricing you intentionally choose rather than
+assuming repository defaults are current:
+
+```bash
+OPENAI_INPUT_USD_PER_MILLION=<chosen-input-price>
+OPENAI_OUTPUT_USD_PER_MILLION=<chosen-output-price>
+```
+
+Historical results remain append-only; their usage stays null and renders unknown.
+Pricing affects future provider responses and is not a billing limit. Phase 6 adds
+enforceable gates.
+
 ### Programmatic uncertainty
 
 To estimate uncertainty across paired examples:
@@ -337,6 +371,9 @@ OPENAI_MODEL=gpt-5.6-luna
 OPENAI_TIMEOUT_SECONDS=30
 OPENAI_MAX_RETRIES=2
 OPENAI_MAX_OUTPUT_TOKENS=128
+# Optional; configure both from the pricing source and date you intentionally choose.
+# OPENAI_INPUT_USD_PER_MILLION=<chosen-input-price>
+# OPENAI_OUTPUT_USD_PER_MILLION=<chosen-output-price>
 ```
 
 Then run one of the pinned samples:
@@ -532,7 +569,7 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
 - [x] **Phase 1:** versioned automotive data, prompt registry, provider protocol, deterministic scoring, persisted runs, and response caching
 - [x] **Phase 2:** HF samples, QA scorers, the streamed importer, split enforcement, and the opt-in provider adapter; a credentialed provider smoke test remains optional
 - [x] **Phase 3:** secured Inngest workflows with idempotent validation, generation, scoring, completion/failure handling, local traces, and interruption-recovery acceptance coverage
-- [ ] **Phase 4:** baseline comparison dashboard, latency/cost analysis, and retrieval metrics
+- [ ] **Phase 4:** implementation complete on the final branch; merge and browser acceptance pending
 - [ ] **Phase 5:** calibrated LLM judge and human-reviewed evaluation subset
 - [ ] **Phase 6:** CI regression policy with statistically justified thresholds
 - [ ] **Phase 7:** verified Docker/Render deployment and safe public demo mode
