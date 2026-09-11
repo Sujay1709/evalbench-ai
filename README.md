@@ -97,7 +97,31 @@ by example ID and returned in sorted order; incomplete coverage, inconsistent
 aggregate metrics, and conflicting stored inputs raise `ComparisonError`.
 Legacy mixed-split runs are excluded. Score changes and pass/fail transitions are
 reported independently: a partial-credit improvement need not cross a passing threshold.
-The comparison dashboard remains a later Phase 4 slice.
+The read-only comparison dashboard is available at `/compare`.
+
+### Explore comparisons in the browser
+
+Start Flask with `flask --app evalbench:create_app run --debug`, open
+`http://127.0.0.1:5000/compare`, and select two completed runs. You can also use
+the **Compare runs** link in the navigation. The page shows paired score and
+pass-rate deltas, bootstrap intervals with limitations, tag/difficulty summaries,
+and filters for improved, regressed, or unchanged examples. Open an example to
+inspect both outputs and scorer evidence side by side. URLs preserve the run IDs
+so comparisons and evidence can be bookmarked.
+
+The pages make no model calls or database writes and also work in read-only demo
+mode. Tag/difficulty summaries require the original dataset in the local registry;
+if it is missing or changed, the page keeps paired results visible and explains
+how to restore metadata. Dashboard bootstrap calculations are limited to 2–1,000
+pairs; use the Python API for larger analyses. These pages do not authorize
+deployment or claim statistical equivalence.
+
+Manual UI check: select two compatible runs, filter **Regressed**, open a case,
+and follow **Back to comparison**. Check keyboard focus, 375px and desktop layouts,
+and long output wrapping. Automated route tests cover rendering and safe escaping;
+browser-based visual/accessibility acceptance remains pending.
+
+### Programmatic uncertainty
 
 To estimate uncertainty across paired examples:
 

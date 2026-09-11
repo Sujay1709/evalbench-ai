@@ -8,15 +8,16 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
   </head>
   <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
     <header class="site-header">
       <a class="brand" href="{{ url_for('web.index') }}" aria-label="EvalBench home">
         <span class="brand-mark">E</span>
         <span>EvalBench</span>
       </a>
-      <span class="phase-badge">Offline evaluation · Phase 1</span>
+      <nav aria-label="Main navigation"><a href="{{ url_for('web.comparison') }}">Compare runs</a></nav>
     </header>
 
-    <main>{% block content %}{% endblock %}</main>
+    <main id="main-content">{% block content %}{% endblock %}</main>
 
     <footer>
       Reproducible evaluation. Measurable decisions. No API key required.

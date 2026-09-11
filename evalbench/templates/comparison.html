@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Compare runs · EvalBench{% endblock %}
+{% block content %}
+<section class="comparison-header">
+  <p class="eyebrow">Experiment analysis · read-only</p>
+  <h1>Did the candidate improve?</h1>
+  <p>Compare the same benchmark and split. Every delta is candidate minus baseline.</p>
+</section>
+<form class="compare-form" method="get" action="{{ url_for('web.comparison') }}">
+  {% for field in ['baseline', 'candidate'] %}
+  <div><label for="{{ field }}">{{ field | title }} run</label>
+    <select id="{{ field }}" name="{{ field }}" required aria-describedby="selection-help">
+      <option value="">Select a completed run</option>
+      {% for run in runs %}<option value="{{ run.id }}" {% if request.args.get(field) == run.id %}selected{% endif %}>{{ run.id[:8] }} · {{ run.dataset_name }} / {{ run.dataset_split }} · {{ run.prompt_id }} {{ run.prompt_version }} · {{ run.provider }}</option>{% endfor %}
+    </select>
+  </div>
+  {% endfor %}
+  <button type="submit">Compare runs</button>
+  <p id="selection-help">Choose two distinct completed runs with matching dataset versions and splits.</p>
+</form>
+{% if error %}<div class="failure-summary" role="alert"><h2>Cannot compare these runs</h2><p>{{ error }}</p></div>{% endif %}
+{% if not runs %}<div class="empty-state"><h2>No completed runs yet</h2><p>Run two offline evaluations from the CLI, then return here.</p><code>python -m evalbench.cli run --split development</code></div>{% endif %}
+{% if report %}
+<section class="comparison-section" aria-label="Paired summary">
+  <p>{{ baseline.dataset_name }} · {{ baseline.dataset_version }} · {{ report.dataset_split }} · {{ report.examples | length }} paired examples</p>
+  <p><a href="{{ url_for('web.run_detail', run_id=baseline.id) }}">Baseline {{ baseline.id[:8] }}</a> → <a href="{{ url_for('web.run_detail', run_id=candidate.id) }}">Candidate {{ candidate.id[:8] }}</a></p>
+  <div class="metrics">
+    <article><strong>{{ '%+.3f' | format(report.mean_score_delta) }}</strong><span>Mean score delta (0–1 scale)</span><p>{{ '%.3f' | format(report.baseline_mean_score) }} → {{ '%.3f' | format(report.candidate_mean_score) }}</p></article>
+    <article><strong>{{ '%+.1f' | format(report.pass_rate_delta * 100) }} pp</strong><span>Pass-rate change</span><p>{{ '%.1f%%' | format(report.baseline_pass_rate * 100) }} → {{ '%.1f%%' | format(report.candidate_pass_rate * 100) }}</p></article>
+    <article><strong>{{ report.regressed }}</strong><span>Score regressions</span><p>{{ report.newly_failing }} newly failing · {{ report.newly_passing }} newly passing</p></article>
+  </div>
+</section>
+<section class="comparison-section">
+  <h2>Uncertainty, not a verdict</h2>
+  {% if intervals %}
+  <div class="evidence-grid">
+    {% for name, interval in [('Mean', intervals.mean_delta), ('Median', intervals.median_delta)] %}
+    <article class="result-card"><h3>{{ name }} paired difference</h3><p>Estimate {{ '%+.3f' | format(interval.estimate) }}</p><p>95% interval: <strong>{{ '%+.3f' | format(interval.lower) }} to {{ '%+.3f' | format(interval.upper) }}</strong></p></article>
+    {% endfor %}
+  </div>
+  <p>{{ intervals.n_resamples }} paired percentile resamples · seed {{ intervals.seed }} · {{ intervals.random_generator }} · NumPy {{ intervals.numpy_version }} · {{ intervals.quantile_method }} quantiles.</p>
+  <ul>{% for warning in intervals.warnings %}<li>{{ warning }}</li>{% endfor %}</ul>
+  <p>An interval crossing zero does not establish equivalence. These are not automated release gates.</p>
+  {% else %}<p>{{ advisory }}</p>{% endif %}
+</section>
+<section class="comparison-section">
+  <h2>Where did behavior change?</h2>
+  {% if segments %}
+  <p>Tags overlap; do not add their counts. Difficulty groups partition examples. Small groups are descriptive, not significance tests.</p>
+  {% for title, groups in [('Tags', segments.tags), ('Difficulty', segments.difficulties)] %}
+  <h3>{{ title }}</h3>
+  <div class="segment-grid">
+  {% for group in groups %}
+    <article class="result-card"><h4>{{ group.label if group.label is not none else 'Untagged (no tags)' }}</h4>
+      <p>{{ group.sample_size }} examples · score Δ {{ '%+.3f' | format(group.mean_score_delta) }} · pass Δ {{ '%+.1f' | format(group.pass_rate_delta * 100) }} pp</p>
+      <p>{{ group.regressed }} regressed · {{ group.newly_failing }} newly failing</p>
+      <details><summary>Inspect group examples</summary><ul>{% for id in group.example_ids %}<li><a href="{{ url_for('web.comparison_example', baseline=baseline.id, candidate=candidate.id, example=id) }}">{{ id }}</a></li>{% endfor %}</ul></details>
+    </article>
+  {% endfor %}
+  </div>
+  {% endfor %}
+  {% else %}<p role="status">{{ segment_error }}</p>{% endif %}
+</section>
+<section class="comparison-section" id="examples">
+  <h2>Per-example changes</h2>
+  <nav class="change-filters" aria-label="Filter score changes">{% for change in ['all', 'regressed', 'improved', 'unchanged'] %}<a href="{{ url_for('web.comparison', baseline=baseline.id, candidate=candidate.id, change=change) }}#examples" {% if request.args.get('change', 'all') == change %}aria-current="true"{% endif %}>{{ change | title }}</a>{% endfor %}</nav>
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Example score changes">
+  <table><caption>Candidate minus baseline · {{ pairs | length }} matching examples</caption><thead><tr><th scope="col">Example</th><th scope="col">Baseline</th><th scope="col">Candidate</th><th scope="col">Delta</th><th scope="col">Change</th></tr></thead><tbody>
+  {% for pair in pairs %}<tr><th scope="row"><a href="{{ url_for('web.comparison_example', baseline=baseline.id, candidate=candidate.id, example=pair.example_id) }}">{{ pair.example_id }}</a></th><td>{{ '%.3f' | format(pair.baseline_score) }}</td><td>{{ '%.3f' | format(pair.candidate_score) }}</td><td>{{ '%+.3f' | format(pair.score_delta) }}</td><td>{{ pair.change | title }}</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% if not pairs %}<p>No examples match this filter.</p>{% endif %}
+</section>
+{% endif %}
+{% endblock %}

@@ -26,6 +26,36 @@ body {
 
 a { color: var(--accent-soft); }
 
+:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 4px; }
+.skip-link { position: absolute; left: 1rem; top: -10rem; padding: 1rem; background: var(--surface); }
+.skip-link:focus { top: 1rem; z-index: 10; }
+.site-header nav a { display: inline-block; padding: 0.8rem; }
+.comparison-header { padding-block: 3rem 1rem; }
+.comparison-header h1 { font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.15; }
+.comparison-header, .comparison-section, .evidence-grid { overflow-wrap: anywhere; line-height: 1.6; }
+.comparison-section { margin-block: 2.5rem; }
+.compare-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 1rem; align-items: end; }
+.compare-form > div, .evidence-grid > *, .segment-grid > * { min-width: 0; }
+.compare-form label { display: block; margin-bottom: 0.5rem; }
+.compare-form select { width: 100%; min-height: 48px; padding: 0.75rem; border: 1px solid var(--muted); background: var(--surface); color: var(--text); font: inherit; }
+.compare-form button { min-height: 48px; padding: 0.75rem 1.2rem; border: 0; border-radius: 0.5rem; background: var(--accent-soft); color: var(--bg); font: inherit; font-weight: 700; cursor: pointer; }
+.compare-form button:hover { background: var(--text); }
+.compare-form p { grid-column: 1 / -1; color: var(--muted); }
+.evidence-grid, .segment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.evidence-grid pre { background: var(--bg); padding: 1rem; line-height: 1.6; }
+.segment-grid h4 { font-size: 1.1rem; margin: 0 0 1rem; }
+.segment-grid summary { cursor: pointer; min-height: 44px; padding-block: 0.5rem; color: var(--accent-soft); }
+.segment-grid li a { display: inline-block; padding-block: 0.5rem; }
+.change-filters { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem; }
+.change-filters a { padding: 0.6rem 1rem; border: 1px solid var(--muted); border-radius: 0.5rem; }
+.change-filters a[aria-current] { background: var(--surface-strong); color: var(--text); text-decoration-thickness: 3px; }
+.comparison-section table { min-width: 560px; font-variant-numeric: tabular-nums; }
+.comparison-section caption { text-align: left; padding: 1rem; color: var(--muted); }
+.comparison-section .metrics p { margin: 0.75rem 0 0; }
+@media (max-width: 760px) {
+  .compare-form, .evidence-grid, .segment-grid { grid-template-columns: 1fr; }
+}
+
 .site-header,
 main,
 footer {
