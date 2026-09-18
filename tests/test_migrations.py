@@ -57,7 +57,29 @@ def test_run_metadata_migrations_backfill_and_require_new_fields(tmp_path):
                 {"dataset_hash": "d" * 64},
             )
 
+        with db.engine.begin() as connection:
+            connection.execute(
+                sa.text(
+                    """
+                    INSERT INTO example_results (
+                        run_id, example_id, input_json, output_text, passed,
+                        score, scorer_details, cache_hit, latency_ms
+                    ) VALUES (
+                        'legacy-run', 'old-example', '{}', 'old output', 1,
+                        1, '[]', 0, 12
+                    )
+                    """
+                )
+            )
+
         command.upgrade(config, "head")
+
+        with db.engine.connect() as connection:
+            historical_usage = connection.execute(
+                sa.text("SELECT usage_json FROM example_results WHERE example_id = 'old-example'")
+            ).scalar_one()
+        assert historical_usage is None
+        command.check(config)
 
         with db.engine.connect() as connection:
             migrated_run = connection.execute(

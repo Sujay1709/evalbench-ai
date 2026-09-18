@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     openai_timeout_seconds: float = Field(default=30.0, gt=0)
     openai_max_retries: int = Field(default=2, ge=0, le=10)
     openai_max_output_tokens: int = Field(default=128, ge=16, le=4096)
+    openai_input_usd_per_million: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    openai_output_usd_per_million: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     inngest_app_id: str = Field(default="evalbench", min_length=1, max_length=64)
     inngest_event_key: SecretStr | None = None
     inngest_signing_key: SecretStr | None = None
@@ -35,6 +37,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_secret(self) -> "Settings":
+        if (self.openai_input_usd_per_million is None) != (
+            self.openai_output_usd_per_million is None
+        ):
+            raise ValueError("Configure both OpenAI input and output prices, or neither")
         if self.app_env == "production" and self.secret_key == "development-only-secret":
             raise ValueError("Production requires a non-default SECRET_KEY")
         if self.llm_provider == "openai" and (

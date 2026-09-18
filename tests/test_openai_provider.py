@@ -109,3 +109,34 @@ def test_openai_provider_classifies_timeout_as_transient():
 
     with pytest.raises(ProviderTransientError, match="connection failed"):
         provider.generate("Rendered prompt", _example())
+
+
+def test_user_configured_cost_estimate_is_snapshotted_offline():
+    response = SimpleNamespace(
+        id="test",
+        model="test",
+        output_text="France",
+        usage=SimpleNamespace(input_tokens=100, output_tokens=20, total_tokens=120),
+    )
+    provider = OpenAIProvider(
+        api_key="test",
+        model="test",
+        input_usd_per_million=2,
+        output_usd_per_million=10,
+        client=FakeClient(FakeResponses(response=response)),
+    )
+    metadata = provider.generate("test", _example()).metadata
+    assert metadata["estimated_cost_usd"] == pytest.approx(0.0004)
+    assert "input=2" in metadata["cost_basis"]
+
+
+@pytest.mark.parametrize("prices", [(None, 2), (-1, 2), (True, 2), (float("inf"), 2)])
+def test_rejects_invalid_prices(prices):
+    with pytest.raises(ProviderConfigurationError, match="prices"):
+        OpenAIProvider(
+            api_key="test",
+            model="test",
+            input_usd_per_million=prices[0],
+            output_usd_per_million=prices[1],
+            client=FakeClient(FakeResponses()),
+        )

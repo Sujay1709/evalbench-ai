@@ -25,6 +25,17 @@ body {
 }
 
 a { color: var(--accent-soft); }
+.efficiency-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.efficiency-grid dt { color: var(--muted); }
+.efficiency-grid dd { margin: 0.5rem 0; font-variant-numeric: tabular-nums; }
+.pareto-chart { width: 100%; max-width: 800px; height: auto; background: var(--surface); border-radius: 1rem; }
+.pareto-chart line { stroke: var(--muted); }
+.pareto-chart text { fill: var(--text); font-size: 15px; }
+.pareto-chart circle { fill: var(--muted); }
+.pareto-chart .frontier { fill: var(--accent-soft); }
+.site-header nav { display: flex; flex-wrap: wrap; }
+.result-card summary { cursor: pointer; padding-block: 0.75rem; }
+@media (max-width: 760px) { .efficiency-grid { grid-template-columns: 1fr; } }
 
 :focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 4px; }
 .skip-link { position: absolute; left: 1rem; top: -10rem; padding: 1rem; background: var(--surface); }

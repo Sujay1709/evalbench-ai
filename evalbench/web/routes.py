@@ -1,6 +1,7 @@
 from flask import Blueprint, abort, render_template, request
 
 from evalbench.comparisons import ComparisonError, compare_runs, paired_bootstrap
+from evalbench.comparisons.efficiency import build_leaderboards, summarize_efficiency
 from evalbench.extensions import db
 from evalbench.models import EvaluationRun
 from evalbench.web.comparison import load_segments
@@ -21,7 +22,7 @@ def run_detail(run_id: str):
     run = db.session.get(EvaluationRun, run_id)
     if run is None:
         abort(404)
-    return render_template("run_detail.html", run=run)
+    return render_template("run_detail.html", run=run, efficiency=summarize_efficiency(run))
 
 
 def _comparison_runs():
@@ -62,6 +63,7 @@ def comparison():
         context["error"] = str(exc)
         return render_template("comparison.html", **context), 400
     context.update(report=report, baseline=baseline, candidate=candidate)
+    context["efficiencies"] = (summarize_efficiency(baseline), summarize_efficiency(candidate))
     # Bound work on the public read-only endpoint. Larger analyses remain available in Python.
     if 2 <= len(report.examples) <= 1000:
         context["intervals"] = paired_bootstrap(report)
@@ -104,3 +106,10 @@ def comparison_example():
         before=before,
         after=after,
     )
+
+
+@web_blueprint.get("/leaderboard")
+def leaderboard():
+    runs = db.session.execute(db.select(EvaluationRun)).scalars().all()
+    boards, excluded = build_leaderboards(runs)
+    return render_template("leaderboard.html", boards=boards, excluded=excluded)

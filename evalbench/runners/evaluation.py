@@ -125,6 +125,7 @@ class EvaluationRunner:
                         scorer_details=scored.scorer_details,
                         cache_hit=generated.cache_hit,
                         latency_ms=generated.latency_ms,
+                        usage_json=generated.usage,
                     )
                 )
 

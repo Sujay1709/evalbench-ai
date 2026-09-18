@@ -8,7 +8,7 @@ Build EvalBench as a portfolio-quality, reproducible LLM evaluation and regressi
 
 - Phase 0, Phase 1, and the offline Phase 2 engine are complete; a credentialed provider smoke test remains optional.
 - Phase 3 is complete: the secured Inngest workflow, queue command, durable checkpoints, failure finalization, local trace workflow, and recovery acceptance coverage are implemented.
-- Phase 4 is next: build evidence-backed baseline/candidate comparisons before adding model-judge features.
+- Phase 4 implementation is complete on its final branch; merge and browser acceptance are required before Phase 5 model-judge work begins.
 - Keep all automated tests offline. Do not add LlamaIndex or LangSmith tracing until their planned slice.
 
 ## Architecture rules

@@ -20,6 +20,7 @@ from evalbench.providers import (
     ProviderTransientError,
     build_provider,
 )
+from evalbench.providers.usage import usage_snapshot
 from evalbench.runners.aggregation import AggregationError, aggregate_example_scores
 from evalbench.runners.generation import generate_or_load_response, response_cache_key
 from evalbench.runners.scoring import score_example_output
@@ -325,6 +326,7 @@ def _score_and_persist_example(
                 scorer_details=scored.scorer_details,
                 cache_hit=checkpoint.cache_hit,
                 latency_ms=checkpoint.latency_ms,
+                usage_json=usage_snapshot(cached_response.response_metadata),
             )
         )
         db.session.commit()

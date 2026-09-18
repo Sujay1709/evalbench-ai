@@ -1,0 +1,15 @@
+{% macro value(number, pattern='%.2f') %}{{ pattern | format(number) if number is not none else 'Unknown' }}{% endmacro %}
+{% macro summary(item) %}
+<dl class="efficiency-grid">
+  <div><dt>Cache hits / results</dt><dd>{{ item.cache_hits }} / {{ item.examples }}</dd></div>
+  <div><dt>Generated responses</dt><dd>{{ item.generated }}</dd></div>
+  <div><dt>Median generation latency (ms)</dt><dd>{{ value(item.median_generation_ms) }}</dd></div>
+  <div><dt>P95 generation latency (ms)</dt><dd>{{ value(item.p95_generation_ms) }}</dd></div>
+  <div><dt>Input / output tokens represented</dt><dd>{{ value(item.input_tokens, '%d') }} / {{ value(item.output_tokens, '%d') }}</dd></div>
+  <div><dt>Generation-equivalent estimate (USD)</dt><dd>{{ value(item.estimated_generation_cost_usd, '%.6f') }}</dd></div>
+  <div><dt>New-response estimate (USD)</dt><dd>{{ value(item.estimated_new_response_cost_usd, '%.6f') }}</dd></div>
+  <div><dt>Cost coverage</dt><dd>{{ item.cost_coverage }} / {{ item.examples }} results</dd></div>
+</dl>
+<details><summary>Measurement basis</summary><p>Latency includes generated responses only; cached zeros are excluded. P95 uses linear quantiles. Small samples are descriptive. These are successful-response estimates, not invoices or complete retry costs. Generation-equivalent cost includes original cached usage for fairer comparisons; new-response cost excludes cache hits.</p>
+<ul>{% for basis in item.cost_bases %}<li>{{ basis }}</li>{% else %}<li>No pricing basis recorded.</li>{% endfor %}</ul></details>
+{% endmacro %}

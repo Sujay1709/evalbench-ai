@@ -3,6 +3,7 @@
 {% block title %}Run {{ run.id[:8] }} · EvalBench{% endblock %}
 
 {% block content %}
+  {% from "efficiency.html" import summary %}
   <section class="detail-header">
     <a class="back-link" href="{{ url_for('web.index') }}">← All runs</a>
     <p class="eyebrow">Evaluation run</p>
@@ -17,6 +18,10 @@
     </div>
   </section>
 
+  <section class="comparison-section result-card"><h2>Recorded efficiency</h2>
+    {% if run.status != 'completed' %}<p>Partial results only: this run is {{ run.status }}.</p>{% endif %}
+    {{ summary(efficiency) }}
+  </section>
   {% if run.status == "failed" %}
     <section class="failure-summary" role="alert" aria-labelledby="failure-summary-title">
       <p class="eyebrow">Action required</p>
