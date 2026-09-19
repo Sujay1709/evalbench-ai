@@ -4,12 +4,12 @@
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-3.x-000000?logo=flask&logoColor=white)
-![Phase](https://img.shields.io/badge/status-Phase%203%20complete-2E8B57)
+![Phase](https://img.shields.io/badge/status-Phase%204%20merged-2E8B57)
 ![Operation](https://img.shields.io/badge/tests-offline%20%26%20deterministic-F59E0B)
 
 EvalBench turns datasets, prompt versions, provider settings, and scoring rules into traceable evaluation runs. It stores per-example evidence, reuses identical responses through content-addressed caching, and makes regressions inspectable from a Flask dashboard.
 
-The default evaluation path is deliberately offline and deterministic. It proves that the infrastructure works without API keys or paid model calls. Phase 2 added an opt-in OpenAI Responses API adapter, a reproducible Hugging Face importer, and pinned SQuAD v2 and HotpotQA samples. The adapter is contract-tested but has not been credentialed smoke-tested; RAG and statistical model comparisons remain planned work.
+The default evaluation path is deliberately offline and deterministic. It proves that the infrastructure works without API keys or paid model calls. Phase 2 added an opt-in OpenAI Responses API adapter, a reproducible Hugging Face importer, and pinned SQuAD v2 and HotpotQA samples. The adapter is contract-tested but has not been credentialed smoke-tested. Phase 4 added paired comparisons, bootstrap intervals, and cost/latency reporting; RAG and calibrated model-based judging remain planned work.
 
 ## Why this project exists
 
@@ -33,12 +33,13 @@ EvalBench is designed around those questions. It emphasizes measurable behavior,
 | Provider abstraction | Offline mock plus an opt-in, contract-tested OpenAI Responses API adapter |
 | Deterministic scoring | Exact match, token F1, answerability, and JSON Schema with readable evidence |
 | Reproducibility | Dataset hashes and versioned prompt/provider identities are stored per run; cache keys hash the exact prompt, provider, dataset subset, and example |
-| Response caching | Identical requests are served from a content-addressed SQLite cache |
+| Response caching | Identical requests are served from a content-addressed SQLAlchemy cache |
 | Audit trail | Append-only run summaries, per-example results, and persisted correlation IDs |
 | Durable workflow execution | Inngest validation, generation, scoring, and atomic completion checkpoints with idempotent database replay protection |
 | Safe failure finalization | Exhausted retries produce categorized, sanitized diagnostics while preserving completed runs and partial evidence |
 | Web observability | Run dashboard, run-detail view, liveness, and database readiness routes |
-| Local quality gate | Ninety-six automated tests and Ruff static analysis pass locally |
+| Database compatibility | SQLite offline default and Supabase/PostgreSQL via psycopg, verified hosted TLS, bounded pools, and migration compatibility tests |
+| Local quality gate | Offline automated tests and Ruff static analysis; an opt-in local PostgreSQL service exercises migration and persistence compatibility |
 
 ## Architecture pipeline
 
@@ -57,7 +58,7 @@ flowchart LR
     L --> W
     W --> O
     O --> E["Deterministic scorers"]
-    E --> DB[("SQLite / SQLAlchemy")]
+    E --> DB[("SQLite or PostgreSQL / SQLAlchemy")]
     DB --> UI["Flask dashboard and run evidence"]
     DB -. "Future" .-> CI["Regression gate in CI"]
 ```
@@ -301,6 +302,22 @@ flask --app evalbench:create_app run --debug
 ```
 
 Open [http://localhost:5000](http://localhost:5000) to inspect the run dashboard.
+
+### Persistent PostgreSQL / Supabase
+
+Supabase can persist evaluation history and cached responses outside an ephemeral
+backend filesystem. Flask, SQLAlchemy, and Alembic remain in place; SQLite still
+works without an account. Hosted connections use certificate/hostname verification
+and bounded pools. PostgreSQL runs require explicit migrations and never create
+tables automatically. No hosted database has been provisioned by this integration.
+
+See [the secure Supabase setup and migration-test guide](docs/supabase-database.md)
+for certificate configuration, migration/runtime role separation, Data API
+protection, local PostgreSQL testing, and the required hosted smoke check.
+
+The approved [React/shadcn migration sequence](docs/frontend-migration.md) is a
+separate frontend PR before Phase 5's annotation UX; the current Jinja frontend
+has not been replaced or initialized with shadcn.
 
 ### Health checks
 
@@ -569,7 +586,8 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
 - [x] **Phase 1:** versioned automotive data, prompt registry, provider protocol, deterministic scoring, persisted runs, and response caching
 - [x] **Phase 2:** HF samples, QA scorers, the streamed importer, split enforcement, and the opt-in provider adapter; a credentialed provider smoke test remains optional
 - [x] **Phase 3:** secured Inngest workflows with idempotent validation, generation, scoring, completion/failure handling, local traces, and interruption-recovery acceptance coverage
-- [ ] **Phase 4:** implementation complete on the final branch; merge and browser acceptance pending
+- [ ] **Phase 4:** implementation merged in PR #20; browser acceptance evidence remains required
+- [ ] **Infrastructure interlude:** secure Supabase/PostgreSQL integration before Phase 5; hosted smoke verification remains operator-run
 - [ ] **Phase 5:** calibrated LLM judge and human-reviewed evaluation subset
 - [ ] **Phase 6:** CI regression policy with statistically justified thresholds
 - [ ] **Phase 7:** verified Docker/Render deployment and safe public demo mode
@@ -582,7 +600,7 @@ See [`plan.md`](plan.md) for completion criteria and [`Deploy.md`](Deploy.md) fo
 - The repository contains five automotive fixtures and eight external sample fixtures, which are appropriate for infrastructure verification but too small for model selection.
 - Exact match, token F1, answerability, and JSON Schema are implemented; retrieval and citation metrics remain planned.
 - Docker and Render execution have not yet been smoke-tested.
-- No statistical significance, cost comparison, or human calibration is claimed yet.
+- Comparison and cost-reporting mechanics are verified offline; no live-model performance benchmark or human-calibrated judge is claimed yet.
 
 These are roadmap boundaries, not hidden caveats. Each one maps to a testable milestone above.
 

@@ -1,6 +1,6 @@
 # EvalBench Project Plan
 
-> **Status: approved on August 15, 2026. Phases 0-3 are complete; Phase 4 implementation is complete on its final branch, pending merge and browser acceptance.** Each phase must satisfy its tests and completion criteria before the next phase begins.
+> **Status: approved on August 15, 2026. Phases 0-3 are complete; Phase 4 is merged with browser acceptance still required. The approved Supabase infrastructure interlude precedes Phase 5.** Each phase must satisfy its tests and completion criteria before the next phase begins.
 
 ## 1. Concept
 
@@ -379,8 +379,8 @@ explicit pricing bases, and cost estimates without backfilling historical unknow
 Run, comparison, and leaderboard views report generated-response median/P95 latency,
 cache behavior, generation-equivalent/new-response cost, and compatible-benchmark
 Pareto status. Automated regression drill-down acceptance is complete. The final PR
-merge and browser checks at 375px/desktop with keyboard navigation remain before
-Phase 4 may be declared complete on `main`.
+was merged as PR #20. Browser checks at 375px/desktop with keyboard navigation
+remain an evidence requirement before Phase 4 may be declared fully accepted.
 
 **Concept:** Turn raw results into evidence a reviewer can understand.
 
@@ -393,6 +393,26 @@ Phase 4 may be declared complete on `main`.
 - Accessible responsive styling.
 
 **Done when:** A reviewer can find the exact examples responsible for an aggregate regression.
+
+### Infrastructure interlude - Supabase/PostgreSQL
+
+**Approved sequencing:** Complete this as a separate database-integration PR
+before Phase 5, rather than mixing infrastructure with judging behavior. Retain
+Flask/SQLAlchemy/Alembic and SQLite offline operation. Add psycopg, verified hosted
+TLS, bounded pooling/timeouts, migration/runtime credential separation guidance,
+and local PostgreSQL migration/persistence tests. No hosted account provisioning,
+data transfer, Auth, Storage, or model calls are included.
+
+**Done when:** SQLite and opt-in local PostgreSQL tests pass, schema drift and
+historical backfills are checked, insecure hosted connection settings are rejected,
+and secure setup/rollback is documented. Operator-run hosted smoke verification
+is separately required before claiming Supabase deployment readiness.
+
+**Frontend direction:** Adopt React/Vite and shadcn in a separate migration PR
+after the first Phase 5 rubric/output-contract slice and before annotation UX.
+Preserve Jinja until read-only feature parity and keyboard/mobile acceptance pass.
+See `docs/frontend-migration.md`; no root-level shadcn initialization is included
+in the database PR.
 
 ### Phase 5 - LLM judge and human calibration
 

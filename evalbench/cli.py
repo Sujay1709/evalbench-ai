@@ -4,6 +4,8 @@ from typing import Annotated
 from uuid import UUID
 
 import typer
+from alembic.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from rich.console import Console
 from rich.table import Table
 
@@ -32,6 +34,23 @@ console = Console()
 error_console = Console(stderr=True)
 
 
+def prepare_database() -> None:
+    """Keep SQLite convenient, but require explicit migrations for hosted storage."""
+    if db.engine.dialect.name == "sqlite":
+        db.create_all()
+        return
+    with db.engine.connect() as connection:
+        applied_heads = set(MigrationContext.configure(connection).get_current_heads())
+    expected_heads = set(ScriptDirectory(str(PROJECT_ROOT / "migrations")).get_heads())
+    if applied_heads != expected_heads:
+        error_console.print(
+            "[red]Database migrations required:[/red] run "
+            "flask --app evalbench:create_app db upgrade with your migration role "
+            "before running or queuing evaluations."
+        )
+        raise typer.Exit(code=1)
+
+
 @cli.callback()
 def main() -> None:
     """Manage EvalBench evaluation runs."""
@@ -51,7 +70,7 @@ def run_evaluation(
     provider = build_provider(settings)
     app = create_app()
     with app.app_context():
-        db.create_all()
+        prepare_database()
         dataset = load_jsonl(dataset_path).select_split(split)
         prompt = load_prompt(prompt_path)
         run = EvaluationRunner(provider).run(dataset, prompt)
@@ -107,7 +126,7 @@ def queue_evaluation(
 
     provider = build_provider(settings)
     with app.app_context():
-        db.create_all()
+        prepare_database()
         dataset = load_jsonl(dataset_path).select_split(split)
         prompt = load_prompt(prompt_path)
         run = EvaluationRunner(provider).prepare_run(

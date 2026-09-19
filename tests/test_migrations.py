@@ -3,20 +3,12 @@ import sqlalchemy as sa
 from alembic import command
 from alembic.config import Config
 
-from evalbench import create_app
 from evalbench.extensions import db
 from tests.conftest import PROJECT_ROOT
 
 
-def test_run_metadata_migrations_backfill_and_require_new_fields(tmp_path):
-    database_path = tmp_path / "migration.db"
-    app = create_app(
-        {
-            "TESTING": True,
-            "SQLALCHEMY_DATABASE_URI": f"sqlite:///{database_path}",
-            "SECRET_KEY": "test-secret",
-        }
-    )
+def test_run_metadata_migrations_backfill_and_require_new_fields(migration_app):
+    app = migration_app
     config = Config(str(PROJECT_ROOT / "migrations" / "alembic.ini"))
     config.set_main_option("script_location", str(PROJECT_ROOT / "migrations"))
 
@@ -65,11 +57,12 @@ def test_run_metadata_migrations_backfill_and_require_new_fields(tmp_path):
                         run_id, example_id, input_json, output_text, passed,
                         score, scorer_details, cache_hit, latency_ms
                     ) VALUES (
-                        'legacy-run', 'old-example', '{}', 'old output', 1,
-                        1, '[]', 0, 12
+                        'legacy-run', 'old-example', '{}', 'old output', :passed,
+                        1, '[]', :cache_hit, 12
                     )
                     """
-                )
+                ),
+                {"passed": True, "cache_hit": False},
             )
 
         command.upgrade(config, "head")

@@ -320,6 +320,22 @@ Current platform references:
 
 ## 10. Data Persistence Strategy
 
+### Implemented PostgreSQL connection contract
+
+The database integration supports Supabase through SQLAlchemy and psycopg while
+retaining SQLite locally. See [the Supabase guide](docs/supabase-database.md) for
+verified TLS, per-process pool limits, migration/runtime role separation, Data API
+protection, and migration tests. No hosted project has been provisioned or
+smoke-tested. Configure `DATABASE_SSL_ROOT_CERT` to a certificate file available
+inside the deployment, never a Mac-only path. Use the direct or Session pooler
+endpoint, not the transaction pooler. Apply Alembic migrations with a migration
+role before starting the runtime backend; runtime CLI commands do not create
+PostgreSQL tables. Public demos should use separate SELECT-only credentials.
+
+Switching the URL does not transfer SQLite history. Preserve existing data and
+plan any data transfer separately. This integration does not implement Docker,
+Render provisioning, or the future startup/seed commands above.
+
 The first public demo should favor reliability and cost control over hosted write capability.
 
 - Seed precomputed, non-sensitive results during startup.
@@ -327,7 +343,8 @@ The first public demo should favor reliability and cost control over hosted writ
 - Treat the public demo database as reconstructable.
 - Do not use the container filesystem for irreplaceable user data.
 - Keep full evaluation execution local or in CI for the MVP.
-- Move to managed Postgres only when durable hosted writes are a real requirement.
+- Use managed Postgres for durable evaluation history and future human labels;
+  SQLite remains suitable for a reconstructable offline demo.
 
 This design fits Render's ephemeral filesystem while keeping the recruiter demo functional after a restart.
 

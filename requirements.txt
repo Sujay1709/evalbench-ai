@@ -23,6 +23,7 @@ SQLAlchemy>=2.0,<3.0
 Flask-SQLAlchemy>=3.1,<4.0
 Flask-Migrate>=4.1,<5.0
 alembic>=1.16,<2.0
+psycopg[binary]>=3.2,<4.0
 
 # Evaluation statistics and metrics
 numpy>=2.2,<3.0

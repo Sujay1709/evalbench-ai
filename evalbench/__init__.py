@@ -14,6 +14,12 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     if test_config:
         app.config.update(test_config)
+        if (
+            "SQLALCHEMY_DATABASE_URI" in test_config
+            and "SQLALCHEMY_ENGINE_OPTIONS" not in test_config
+        ):
+            # A test's SQLite override must not inherit PostgreSQL driver options.
+            app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"hide_parameters": True}
 
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)
 
