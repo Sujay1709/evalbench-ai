@@ -77,6 +77,10 @@ endpoint is exposed.
 Future slices must compare repeated and order-swapped judgments with human
 labels, and report agreement and failure modes before operational use.
 
-Run the offline checks with
-`.venv/bin/pytest tests/test_judge_contracts.py tests/test_judge_execution.py -q`.
+Run the offline checks from the project root (copy only the line inside the block):
+
+```bash
+.venv/bin/pytest tests/test_judge_contracts.py tests/test_judge_execution.py -q
+```
+
 The execution tests use a fake client and never require an OpenAI key.
