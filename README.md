@@ -586,7 +586,9 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
 - [x] **Phase 1:** versioned automotive data, prompt registry, provider protocol, deterministic scoring, persisted runs, and response caching
 - [x] **Phase 2:** HF samples, QA scorers, the streamed importer, split enforcement, and the opt-in provider adapter; a credentialed provider smoke test remains optional
 - [x] **Phase 3:** secured Inngest workflows with idempotent validation, generation, scoring, completion/failure handling, local traces, and interruption-recovery acceptance coverage
-- [ ] **Phase 4:** implementation merged in PR #20; browser acceptance evidence remains required
+- [x] **Phase 4:** implementation merged in PR #20; keyboard, mobile/desktop,
+  leaderboard, drill-down, and read-only browser acceptance recorded in
+  [docs/phase-4-acceptance.md](docs/phase-4-acceptance.md)
 - [ ] **Infrastructure interlude:** secure Supabase/PostgreSQL integration before Phase 5; hosted smoke verification remains operator-run
 - [ ] **Phase 5:** calibrated LLM judge and human-reviewed evaluation subset
 - [ ] **Phase 6:** CI regression policy with statistically justified thresholds
