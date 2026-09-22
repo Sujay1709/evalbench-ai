@@ -89,6 +89,24 @@ class JudgeAttempt(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
 
 
+class HumanLabelSet(db.Model):
+    """One append-only, rubric-bound human annotation of an example result."""
+
+    __tablename__ = "human_label_sets"
+
+    id = db.Column(db.String(36), primary_key=True)
+    result_id = db.Column(
+        db.Integer, db.ForeignKey("example_results.id"), nullable=False, index=True
+    )
+    rubric_id = db.Column(db.String(40), nullable=False)
+    rubric_version = db.Column(db.String(12), nullable=False)
+    rubric_hash = db.Column(db.String(64), nullable=False)
+    annotator_id = db.Column(db.String(64), nullable=False)
+    presentation_hash = db.Column(db.String(64), nullable=False)
+    ratings_json = db.Column(db.JSON, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+
+
 class ResponseCache(db.Model):
     __tablename__ = "response_cache"
 

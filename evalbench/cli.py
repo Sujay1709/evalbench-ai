@@ -8,6 +8,7 @@ from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from rich.console import Console
 from rich.table import Table
+from rich.text import Text
 
 from evalbench import create_app
 from evalbench.config import Settings
@@ -24,6 +25,13 @@ from evalbench.judges.execution import (
     JudgePreflightError,
     execute_judgment,
     prepare_judgment,
+)
+from evalbench.judges.human_labels import (
+    HumanCriterionRating,
+    HumanLabelError,
+    prepare_blind_annotation,
+    record_human_labels,
+    validate_annotator_id,
 )
 from evalbench.judges.rubrics import load_rubric
 from evalbench.prompts import load_prompt
@@ -298,6 +306,78 @@ def judge_result(
             error_console.print(attempt.error_message)
         if attempt.status != "completed":
             raise typer.Exit(code=1)
+
+
+@cli.command("label-human")
+def label_human(
+    run_id: Annotated[str, typer.Option("--run-id", help="Completed evaluation run ID.")],
+    example_id: Annotated[str, typer.Option("--example-id", help="One result to label.")],
+    dataset_path: Annotated[Path, typer.Option("--dataset", help="Exact run dataset fixture.")],
+    annotator_id: Annotated[
+        str, typer.Option("--annotator-id", help="Pseudonymous labeler ID, not an email.")
+    ],
+    split: Annotated[EvaluationSplit, typer.Option("--split")] = EvaluationSplit.DEVELOPMENT,
+    rubric_path: Annotated[Path, typer.Option("--rubric")] = DEFAULT_RUBRIC,
+) -> None:
+    """Blindly rate one grounded-QA result without seeing the model judge verdict."""
+    settings = Settings()
+    if settings.demo_read_only:
+        error_console.print("[red]Human labeling unavailable:[/red] DEMO_READ_ONLY is enabled")
+        raise typer.Exit(code=1)
+    try:
+        validate_annotator_id(annotator_id)
+    except HumanLabelError as exc:
+        error_console.print(f"[red]Invalid annotator ID:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    app = create_app()
+    with app.app_context():
+        try:
+            prepare_database()
+            dataset = load_jsonl(dataset_path).select_split(split)
+            rubric = load_rubric(rubric_path)
+            presentation = prepare_blind_annotation(
+                run_id=run_id, example_id=example_id, dataset=dataset, rubric=rubric
+            )
+        except (ValueError, OSError) as exc:
+            error_console.print(f"[red]Human label preflight failed:[/red] {exc}")
+            raise typer.Exit(code=1) from exc
+
+        console.print("Judge verdict and deterministic score are hidden during labeling.")
+        for label, value in (
+            ("Question", presentation.question),
+            ("Context", presentation.context),
+            ("Reference", presentation.reference or "(unanswerable; no reference answer)"),
+            ("Candidate response", presentation.response),
+        ):
+            console.print(f"[bold]{label}[/bold]")
+            console.print(Text(value))
+
+        ratings = []
+        for criterion in rubric.criteria:
+            console.print(f"[bold]{criterion.id}[/bold]: {criterion.description}")
+            for anchor in criterion.anchors:
+                console.print(f"  {anchor.score}: {anchor.description}")
+            score = typer.prompt(f"{criterion.id} score (0/1/2)", type=int)
+            reason = typer.prompt(f"{criterion.id} reason")
+            try:
+                ratings.append(
+                    HumanCriterionRating(
+                        criterion_id=criterion.id, score=score, reason=reason
+                    )
+                )
+            except ValueError as exc:
+                error_console.print(f"[red]Invalid human rating:[/red] {exc}")
+                raise typer.Exit(code=1) from exc
+
+        try:
+            label_set = record_human_labels(
+                presentation, rubric=rubric, annotator_id=annotator_id, ratings=ratings
+            )
+        except HumanLabelError as exc:
+            error_console.print(f"[red]Human label not saved:[/red] {exc}")
+            raise typer.Exit(code=1) from exc
+        console.print(f"Saved human label set {label_set.id}")
 
 
 if __name__ == "__main__":

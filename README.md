@@ -590,7 +590,7 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
   leaderboard, drill-down, and read-only browser acceptance recorded in
   [docs/phase-4-acceptance.md](docs/phase-4-acceptance.md)
 - [x] **Infrastructure interlude:** secure Supabase/PostgreSQL integration merged in PR #21; hosted smoke verification remains operator-run
-- [ ] **Phase 5:** [versioned rubric, strict judge-output contract, and opt-in one-result judge execution](docs/judge-contracts.md) implemented; human calibration remains
+- [ ] **Phase 5:** [versioned rubric and opt-in one-result judge execution](docs/judge-contracts.md) plus [blind, independent human-label collection](docs/human-labels.md) implemented; judge-human calibration remains
 - [ ] **Phase 6:** CI regression policy with statistically justified thresholds
 - [ ] **Phase 7:** verified Docker/Render deployment and safe public demo mode
 
