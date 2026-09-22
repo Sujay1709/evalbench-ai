@@ -64,6 +64,31 @@ class ExampleResult(db.Model):
     )
 
 
+class JudgeAttempt(db.Model):
+    """Append-only advisory evidence, separate from authoritative run scores."""
+
+    __tablename__ = "judge_attempts"
+
+    id = db.Column(db.String(36), primary_key=True)
+    result_id = db.Column(
+        db.Integer, db.ForeignKey("example_results.id"), nullable=False, index=True
+    )
+    rubric_id = db.Column(db.String(40), nullable=False)
+    rubric_version = db.Column(db.String(12), nullable=False)
+    rubric_hash = db.Column(db.String(64), nullable=False)
+    prompt_version = db.Column(db.String(12), nullable=False)
+    prompt_hash = db.Column(db.String(64), nullable=False)
+    request_text = db.Column(db.Text, nullable=False)
+    judge_model = db.Column(db.String(120), nullable=False)
+    status = db.Column(db.String(24), nullable=False)
+    response_id = db.Column(db.String(120))
+    response_json = db.Column(db.JSON)
+    assessments_json = db.Column(db.JSON)
+    advisory_score = db.Column(db.Float)
+    error_message = db.Column(db.Text)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+
+
 class ResponseCache(db.Model):
     __tablename__ = "response_cache"
 

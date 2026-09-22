@@ -20,6 +20,12 @@ from evalbench.datasets import (
     load_jsonl,
 )
 from evalbench.extensions import db
+from evalbench.judges.execution import (
+    JudgePreflightError,
+    execute_judgment,
+    prepare_judgment,
+)
+from evalbench.judges.rubrics import load_rubric
 from evalbench.prompts import load_prompt
 from evalbench.providers import build_provider
 from evalbench.runners import EvaluationRunner
@@ -28,6 +34,7 @@ from evalbench.workflows.events import EvaluationRunRequestedData
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DATASET = PROJECT_ROOT / "datasets" / "automotive_qa" / "v1.jsonl"
 DEFAULT_PROMPT = PROJECT_ROOT / "prompts" / "automotive_qa" / "v1.yaml"
+DEFAULT_RUBRIC = PROJECT_ROOT / "rubrics" / "grounded_qa" / "v1.yaml"
 
 cli = typer.Typer(help="Run reproducible EvalBench experiments.")
 console = Console()
@@ -90,6 +97,7 @@ def run_evaluation(
             )
 
         console.print(table)
+        console.print(f"Run ID: {run.id}")
         console.print(
             f"[bold]Pass rate:[/bold] {run.pass_rate:.0%}  "
             f"[bold]Mean score:[/bold] {run.mean_score:.3f}"
@@ -224,6 +232,72 @@ def import_huggingface(
     )
     console.print(f"Dataset hash: {result.dataset.content_hash}")
     console.print(f"Source offsets: {', '.join(map(str, result.source_offsets))}")
+
+
+@cli.command("judge")
+def judge_result(
+    run_id: Annotated[str, typer.Option("--run-id", help="Completed evaluation run ID.")],
+    example_id: Annotated[str, typer.Option("--example-id", help="One result to judge.")],
+    dataset_path: Annotated[Path, typer.Option("--dataset", help="Exact run dataset fixture.")],
+    split: Annotated[EvaluationSplit, typer.Option("--split")] = EvaluationSplit.DEVELOPMENT,
+    rubric_path: Annotated[Path, typer.Option("--rubric")] = DEFAULT_RUBRIC,
+    judge_model: Annotated[str | None, typer.Option("--judge-model")] = None,
+    execute: Annotated[
+        bool, typer.Option("--execute", help="Authorize exactly one paid judge request.")
+    ] = False,
+) -> None:
+    """Preview one advisory grounded-QA judgment; --execute authorizes the API call."""
+    settings = Settings()
+    if execute and settings.demo_read_only:
+        error_console.print("[red]Judge unavailable:[/red] DEMO_READ_ONLY is enabled")
+        raise typer.Exit(code=1)
+
+    app = create_app()
+    with app.app_context():
+        try:
+            prepare_database()
+            dataset = load_jsonl(dataset_path).select_split(split)
+            rubric = load_rubric(rubric_path)
+            prepared = prepare_judgment(
+                run_id=run_id, example_id=example_id, dataset=dataset, rubric=rubric
+            )
+        except (ValueError, OSError) as exc:
+            error_console.print(f"[red]Judge preflight failed:[/red] {exc}")
+            raise typer.Exit(code=1) from exc
+
+        if not execute:
+            console.print("[yellow]Dry run:[/yellow] no model request or judge record created")
+            console.print(f"Run: {run_id}  Example: {example_id}  Split: {split.value}")
+            console.print(
+                f"Rubric: {rubric.id}:{rubric.version}  Prompt hash: {prepared.prompt_hash}"
+            )
+            console.print("Pass --execute --judge-model MODEL to authorize one capped request")
+            return
+
+        api_key = settings.openai_api_key
+        if api_key is None or not api_key.get_secret_value().strip() or not judge_model:
+            error_console.print(
+                "[red]Judge configuration missing:[/red] set OPENAI_API_KEY and --judge-model"
+            )
+            raise typer.Exit(code=1)
+        try:
+            attempt = execute_judgment(
+                prepared,
+                rubric=rubric,
+                model=judge_model,
+                api_key=api_key.get_secret_value(),
+                timeout_seconds=settings.openai_timeout_seconds,
+            )
+        except JudgePreflightError as exc:
+            error_console.print(f"[red]Judge preflight failed:[/red] {exc}")
+            raise typer.Exit(code=1) from exc
+        console.print(f"Judge attempt: {attempt.id}  Status: {attempt.status}")
+        if attempt.advisory_score is not None:
+            console.print(f"Advisory score: {attempt.advisory_score:.3f}")
+        if attempt.error_message:
+            error_console.print(attempt.error_message)
+        if attempt.status != "completed":
+            raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":

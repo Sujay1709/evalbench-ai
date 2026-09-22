@@ -1,4 +1,4 @@
-# Phase 5: judge contracts (first slice)
+# Phase 5: judge contracts and bounded execution
 
 The first Phase 5 slice defines **what a judge may return**, not whether a model
 judge is trustworthy yet. A rubric is a versioned YAML file with 0/1/2 anchors for
@@ -39,12 +39,44 @@ verdict = parse_judge_output(
 ```
 
 The normalized score is an **advisory** equal-weight mean of criterion scores.
-Existing deterministic scorers remain authoritative. This slice makes no model
-calls, stores no judge grades, and does not add a release gate. Next slices must
-capture raw responses and model/prompt identities, handle refusals and incomplete
-outputs, compare repeated and order-swapped judgments with human labels, and
-report agreement and failure modes before any operational use.
+Existing deterministic scorers remain authoritative. The execution slice adds a
+single-result CLI with an explicit `--execute` opt-in; it does not add a release gate.
+It accepts only completed runs and grounded-QA examples with a context, question,
+and reference or unanswerable label. Run ID, dataset hash/split, and stored input
+must all match before an API client is created. The automotive fixture has no
+context, so use the SQuAD v2 or HotpotQA samples here.
 
-Run the contract checks locally with
-`.venv/bin/pytest tests/test_judge_contracts.py -q`. They are offline and require
-neither an OpenAI key nor a database.
+```bash
+# After migrations, create a completed offline run and copy its full Run ID.
+python -m evalbench.cli run --dataset datasets/squad_v2/sample_v1.jsonl \
+  --prompt prompts/grounded_qa/v1.yaml --split development
+
+# Preview without a key, API call, or judge record.
+python -m evalbench.cli judge --run-id RUN_ID \
+  --example-id squad-v2-56ddde6b9a695914005b9628 \
+  --dataset datasets/squad_v2/sample_v1.jsonl --split development
+
+# Optional paid call: set OPENAI_API_KEY in your untracked .env first.
+python -m evalbench.cli judge --run-id RUN_ID \
+  --example-id squad-v2-56ddde6b9a695914005b9628 \
+  --dataset datasets/squad_v2/sample_v1.jsonl --split development \
+  --judge-model YOUR_AVAILABLE_MODEL --execute
+```
+
+Each execution makes at most one Responses API request, with 768 output tokens,
+30-second default timeout, zero SDK retries, strict structured output, and
+`store=False`. This caps request count and output, **not dollar cost**; check
+current model pricing before opting in. The entire request text and provider
+response are stored locally in `judge_attempts`, alongside rubric/prompt hashes,
+model, outcome, and validated assessments. Failed, refused, incomplete, and
+invalid responses are recorded too. Treat this table as potentially sensitive:
+datasets, candidate answers, and judge output may contain private content.
+The CLI is disabled for execution in `DEMO_READ_ONLY` mode and no paid web
+endpoint is exposed.
+
+Future slices must compare repeated and order-swapped judgments with human
+labels, and report agreement and failure modes before operational use.
+
+Run the offline checks with
+`.venv/bin/pytest tests/test_judge_contracts.py tests/test_judge_execution.py -q`.
+The execution tests use a fake client and never require an OpenAI key.
