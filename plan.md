@@ -1,6 +1,6 @@
 # EvalBench Project Plan
 
-> **Status: approved on August 15, 2026. Phases 0-3 are complete; Phase 4 is merged with browser acceptance still required. The approved Supabase infrastructure interlude precedes Phase 5.** Each phase must satisfy its tests and completion criteria before the next phase begins.
+> **Status: approved on August 15, 2026. Phases 0-4 are complete, including Phase 4 browser acceptance on September 21, 2026. The approved Supabase infrastructure interlude precedes Phase 5.** Each phase must satisfy its tests and completion criteria before the next phase begins.
 
 ## 1. Concept
 
@@ -379,8 +379,9 @@ explicit pricing bases, and cost estimates without backfilling historical unknow
 Run, comparison, and leaderboard views report generated-response median/P95 latency,
 cache behavior, generation-equivalent/new-response cost, and compatible-benchmark
 Pareto status. Automated regression drill-down acceptance is complete. The final PR
-was merged as PR #20. Browser checks at 375px/desktop with keyboard navigation
-remain an evidence requirement before Phase 4 may be declared fully accepted.
+was merged as PR #20. The keyboard, responsive, regression drill-down, leaderboard,
+and read-only browser checks passed on September 21, 2026; see
+`docs/phase-4-acceptance.md` for the evidence and test boundaries.
 
 **Concept:** Turn raw results into evidence a reviewer can understand.
 
