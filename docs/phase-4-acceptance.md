@@ -44,5 +44,7 @@ and a candidate with unknown cost. No model API calls were made.
   SQLite database SHA-256 was unchanged before and after visiting them:
   `b5a7162ad2a917a8df3766ece37ee454f0c2c49de430ba778a5f504130e3f7b8`.
 
-No browser defect was observed. This accepts Phase 4 after the implementation merge
-in PR #20; it does not validate a live Supabase deployment or a paid LLM provider.
+No acceptance-blocking defect was observed. The browser requested `/favicon.ico`
+and received 404; this is non-blocking site polish, not a Phase 4 behavior failure.
+This accepts Phase 4 after the implementation merge in PR #20; it does not
+validate a live Supabase deployment or a paid LLM provider.
