@@ -419,6 +419,11 @@ in the database PR.
 
 **Concept:** Evaluate semantic quality while measuring evaluator reliability.
 
+**Current progress:** The first slice defines a versioned, content-hashed grounded-QA
+rubric and a strict structured-output contract with offline validation. Model calls,
+persisted judge evidence, human labels, agreement statistics, and release-gate use
+remain for later slices; Phase 5 is not complete.
+
 **Build:**
 
 - Versioned rubric and structured judge output.

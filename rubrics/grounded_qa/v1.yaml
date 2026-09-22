@@ -1,0 +1,25 @@
+id: grounded_qa
+version: v1
+description: >-
+  Advisory semantic assessment of a grounded QA answer or abstention. Directly
+  checkable dataset scorers remain authoritative; these ratings require human
+  calibration before they can influence a release decision.
+criteria:
+  - id: answer_quality
+    description: Assess whether the response answers the question using the supplied context, or abstains when the context cannot support an answer.
+    anchors:
+      - score: 0
+        description: Gives a wrong or contradicted answer, or asserts an answer when the context does not support one.
+      - score: 1
+        description: Partially answers or abstains despite some support, with important ambiguity or omission.
+      - score: 2
+        description: Fully answers with the supported information, or correctly abstains when support is absent.
+  - id: evidence_alignment
+    description: Assess whether factual claims in the response align with the supplied context and reference answer.
+    anchors:
+      - score: 0
+        description: Contains a material unsupported or contradicted claim.
+      - score: 1
+        description: Has partial support but includes a relevant claim that is ambiguous or not established.
+      - score: 2
+        description: All relevant claims are supported, or an abstention appropriately avoids unsupported claims.
