@@ -72,6 +72,13 @@ def test_run_metadata_migrations_backfill_and_require_new_fields(migration_app):
                 sa.text("SELECT usage_json FROM example_results WHERE example_id = 'old-example'")
             ).scalar_one()
         assert historical_usage is None
+        assert sa.inspect(db.engine).has_table("judge_attempts")
+        judge_columns = {
+            column["name"]: column for column in sa.inspect(db.engine).get_columns("judge_attempts")
+        }
+        assert not judge_columns["result_id"]["nullable"]
+        assert not judge_columns["request_text"]["nullable"]
+        assert not judge_columns["status"]["nullable"]
         command.check(config)
 
         with db.engine.connect() as connection:
