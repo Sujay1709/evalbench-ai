@@ -107,6 +107,30 @@ class HumanLabelSet(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
 
 
+class KevDecisionAttempt(db.Model):
+    """Append-only secondary decision evidence, never a release-gate score."""
+
+    __tablename__ = "kev_decision_attempts"
+
+    id = db.Column(db.String(36), primary_key=True)
+    result_id = db.Column(
+        db.Integer, db.ForeignKey("example_results.id"), nullable=False, index=True
+    )
+    rubric_id = db.Column(db.String(40), nullable=False)
+    rubric_version = db.Column(db.String(12), nullable=False)
+    rubric_hash = db.Column(db.String(64), nullable=False)
+    expected_run = db.Column(db.String(160), nullable=False)
+    request_hash = db.Column(db.String(64), nullable=False)
+    request_json = db.Column(db.JSON, nullable=False)
+    status = db.Column(db.String(24), nullable=False)
+    model_card_json = db.Column(db.JSON)
+    response_json = db.Column(db.JSON)
+    ratings_json = db.Column(db.JSON)
+    request_id = db.Column(db.String(120))
+    error_message = db.Column(db.Text)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+
+
 class ResponseCache(db.Model):
     __tablename__ = "response_cache"
 

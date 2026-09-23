@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     openai_max_output_tokens: int = Field(default=128, ge=16, le=4096)
     openai_input_usd_per_million: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     openai_output_usd_per_million: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    kev_base_url: str = "http://127.0.0.1:8009"
+    kev_api_key: SecretStr | None = None
+    kev_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
     inngest_app_id: str = Field(default="evalbench", min_length=1, max_length=64)
     inngest_event_key: SecretStr | None = None
     inngest_signing_key: SecretStr | None = None

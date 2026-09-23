@@ -74,6 +74,7 @@ def test_run_metadata_migrations_backfill_and_require_new_fields(migration_app):
         assert historical_usage is None
         assert sa.inspect(db.engine).has_table("judge_attempts")
         assert sa.inspect(db.engine).has_table("human_label_sets")
+        assert sa.inspect(db.engine).has_table("kev_decision_attempts")
         judge_columns = {
             column["name"]: column for column in sa.inspect(db.engine).get_columns("judge_attempts")
         }
@@ -86,6 +87,12 @@ def test_run_metadata_migrations_backfill_and_require_new_fields(migration_app):
         }
         assert not label_columns["result_id"]["nullable"]
         assert not label_columns["ratings_json"]["nullable"]
+        kev_columns = {
+            column["name"]: column
+            for column in sa.inspect(db.engine).get_columns("kev_decision_attempts")
+        }
+        assert not kev_columns["result_id"]["nullable"]
+        assert not kev_columns["request_json"]["nullable"]
         command.check(config)
 
         with db.engine.connect() as connection:
