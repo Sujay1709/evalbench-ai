@@ -33,6 +33,13 @@ from evalbench.judges.human_labels import (
     record_human_labels,
     validate_annotator_id,
 )
+from evalbench.judges.kev import (
+    KevConfigurationError,
+    execute_kev_decision,
+    prepare_kev_decision,
+    validate_local_url,
+    validate_pinned_run,
+)
 from evalbench.judges.rubrics import load_rubric
 from evalbench.prompts import load_prompt
 from evalbench.providers import build_provider
@@ -378,6 +385,77 @@ def label_human(
             error_console.print(f"[red]Human label not saved:[/red] {exc}")
             raise typer.Exit(code=1) from exc
         console.print(f"Saved human label set {label_set.id}")
+
+
+@cli.command("judge-kev")
+def judge_with_kev(
+    run_id: Annotated[str, typer.Option("--run-id", help="Completed evaluation run ID.")],
+    example_id: Annotated[str, typer.Option("--example-id", help="One result to judge.")],
+    dataset_path: Annotated[Path, typer.Option("--dataset", help="Exact run dataset fixture.")],
+    expected_run: Annotated[
+        str, typer.Option("--expected-run", help="Kev Hub ID pinned to a 40-character commit SHA.")
+    ],
+    split: Annotated[EvaluationSplit, typer.Option("--split")] = EvaluationSplit.DEVELOPMENT,
+    rubric_path: Annotated[Path, typer.Option("--rubric")] = DEFAULT_RUBRIC,
+    execute: Annotated[
+        bool, typer.Option("--execute", help="Authorize one local Kev inference request.")
+    ] = False,
+) -> None:
+    """Preview or run one local, secondary Kev decision; never change primary scores."""
+    settings = Settings()
+    if execute and settings.demo_read_only:
+        error_console.print("[red]Kev unavailable:[/red] DEMO_READ_ONLY is enabled")
+        raise typer.Exit(code=1)
+    try:
+        validate_pinned_run(expected_run)
+        validate_local_url(settings.kev_base_url)
+    except KevConfigurationError as exc:
+        error_console.print(f"[red]Kev configuration failed:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    app = create_app()
+    with app.app_context():
+        try:
+            prepare_database()
+            dataset = load_jsonl(dataset_path).select_split(split)
+            rubric = load_rubric(rubric_path)
+            prepared = prepare_judgment(
+                run_id=run_id, example_id=example_id, dataset=dataset, rubric=rubric
+            )
+            kev_request = prepare_kev_decision(prepared, rubric=rubric)
+        except (ValueError, OSError) as exc:
+            error_console.print(f"[red]Kev preflight failed:[/red] {exc}")
+            raise typer.Exit(code=1) from exc
+
+        if not execute:
+            console.print("[yellow]Dry run:[/yellow] no Kev request or record created")
+            console.print(f"Run: {run_id}  Example: {example_id}  Split: {split.value}")
+            console.print(f"Pinned checkpoint: {expected_run}")
+            console.print(f"Request hash: {kev_request.request_hash}")
+            console.print("Pass --execute to authorize one local inference request")
+            return
+
+        api_key = settings.kev_api_key
+        attempt = execute_kev_decision(
+            kev_request,
+            rubric=rubric,
+            expected_run=expected_run,
+            base_url=settings.kev_base_url,
+            api_key=api_key.get_secret_value() if api_key else None,
+            timeout_seconds=settings.kev_timeout_seconds,
+        )
+        console.print(f"Kev attempt: {attempt.id}  Status: {attempt.status}")
+        if attempt.ratings_json:
+            for rating in attempt.ratings_json:
+                probabilities = rating["probabilities"]
+                console.print(
+                    f"{rating['criterion_id']}: expected={rating['expected_score']:.3f}, "
+                    f"P(0/1/2)={[probabilities[str(level)] for level in range(3)]}"
+                )
+        if attempt.error_message:
+            error_console.print(attempt.error_message)
+        if attempt.status != "completed":
+            raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":

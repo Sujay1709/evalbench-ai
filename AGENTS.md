@@ -10,7 +10,7 @@ Build EvalBench as a portfolio-quality, reproducible LLM evaluation and regressi
 - Phase 3 is complete: the secured Inngest workflow, queue command, durable checkpoints, failure finalization, local trace workflow, and recovery acceptance coverage are implemented.
 - Phase 4 implementation is merged in PR #20, and browser acceptance passed on September 21, 2026; see `docs/phase-4-acceptance.md` before Phase 5 model-judge work begins.
 - The secure Supabase/PostgreSQL infrastructure interlude merged in PR #21; SQLite remains the offline default. No hosted provisioning or data transfer is implicit.
-- Phase 5 has advisory judge contracts, opt-in single-result execution, and blind local human-label collection; agreement calibration and any model-based release decision remain unimplemented.
+- Phase 5 has advisory judge contracts, opt-in single-result execution, blind local human labels, and an optional loopback-only Kev decision adapter; agreement calibration and any model-based release decision remain unimplemented.
 - React/Vite and shadcn are approved as a separate frontend migration after Phase 5 rubric/output contracts, before annotation UX. Preserve Jinja until tested feature parity; do not initialize shadcn at the Flask root.
 - Keep all automated tests offline. Do not add LlamaIndex or LangSmith tracing until their planned slice.
 

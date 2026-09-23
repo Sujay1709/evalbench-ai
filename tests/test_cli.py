@@ -25,6 +25,7 @@ def test_cli_exposes_run_subcommand():
     assert "import-hf" in result.output
     assert "judge" in result.output
     assert "label-human" in result.output
+    assert "judge-kev" in result.output
 
 
 def test_cli_judge_dry_run_does_not_create_attempt_or_call_model(monkeypatch, tmp_path):
