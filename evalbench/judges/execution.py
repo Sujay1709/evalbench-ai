@@ -27,6 +27,8 @@ class JudgePreflightError(ValueError):
 class PreparedJudgment:
     result_id: int
     example_id: str
+    question: str
+    rubric_hash: str
     request_text: str
     prompt_hash: str
     sources: dict[str, str]
@@ -113,6 +115,8 @@ def prepare_judgment(
     return PreparedJudgment(
         result_id=result.id,
         example_id=example_id,
+        question=question,
+        rubric_hash=rubric.content_hash,
         request_text=request_text,
         prompt_hash=hashlib.sha256(request_text.encode()).hexdigest(),
         sources=sources,
