@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 from sklearn.metrics import cohen_kappa_score
 from sklearn.metrics import confusion_matrix as sklearn_confusion_matrix
 
+from evalbench.extensions import db
+
 if TYPE_CHECKING:
     from evalbench.judges.rubrics import RubricDefinition
     from evalbench.models import HumanLabelSet, JudgeAttempt
@@ -46,6 +48,16 @@ class CriterionAgreement:
     quadratic_weighted_kappa: float | None
     confusion_matrix: tuple[tuple[int, ...], ...]
     disagreement_result_ids: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class CalibrationCohort:
+    """One explicit, leakage-safe calibration sample from a single run split."""
+
+    run_id: str
+    dataset_split: str
+    rubric_hash: str
+    pairs: tuple[CalibrationPair, ...]
 
 
 def _scores_by_criterion(
@@ -386,6 +398,85 @@ def summarize_criterion(
         quadratic_weighted_kappa=_weighted_kappa(human_scores, judge_scores),
         confusion_matrix=tuple(tuple(int(value) for value in row) for row in matrix),
         disagreement_result_ids=disagreement_result_ids,
+    )
+
+
+def load_calibration_cohort(
+    run_id: str,
+    selections: Sequence[tuple[str, str]],
+    *,
+    rubric: RubricDefinition,
+) -> CalibrationCohort:
+    """Load explicit calibration pairs from one development or holdout run only."""
+    if not isinstance(run_id, str) or not run_id:
+        raise CalibrationError("run_id must be a non-empty string")
+    if not selections:
+        raise CalibrationError("Select at least one judge/human pair")
+
+    selection_ids: list[tuple[str, str]] = []
+    for judge_attempt_id, human_label_id in selections:
+        if (
+            not isinstance(judge_attempt_id, str)
+            or not judge_attempt_id
+            or not isinstance(human_label_id, str)
+            or not human_label_id
+        ):
+            raise CalibrationError(
+                "Each selection needs non-empty judge attempt and human label IDs"
+            )
+        selection_ids.append((judge_attempt_id, human_label_id))
+
+    from evalbench.models import EvaluationRun, ExampleResult, HumanLabelSet, JudgeAttempt
+
+    judge_ids = {judge_attempt_id for judge_attempt_id, _ in selection_ids}
+    human_ids = {human_label_id for _, human_label_id in selection_ids}
+    with db.session.no_autoflush:
+        run = db.session.get(EvaluationRun, run_id)
+        if run is None:
+            raise CalibrationError(f"Evaluation run '{run_id}' does not exist")
+        if run.dataset_split not in {"development", "holdout"}:
+            raise CalibrationError(
+                "Calibration requires a run with a development or holdout dataset split"
+            )
+
+        judges = {
+            attempt.id: attempt
+            for attempt in db.session.execute(
+                db.select(JudgeAttempt).where(JudgeAttempt.id.in_(judge_ids))
+            ).scalars()
+        }
+        humans = {
+            label.id: label
+            for label in db.session.execute(
+                db.select(HumanLabelSet).where(HumanLabelSet.id.in_(human_ids))
+            ).scalars()
+        }
+        missing_judges = sorted(judge_ids - set(judges))
+        missing_humans = sorted(human_ids - set(humans))
+        if missing_judges or missing_humans:
+            raise CalibrationError(
+                "Selected calibration evidence is missing: "
+                f"judge_attempt_ids={missing_judges}, human_label_ids={missing_humans}"
+            )
+
+        selected = tuple(
+            (judges[judge_attempt_id], humans[human_label_id])
+            for judge_attempt_id, human_label_id in selection_ids
+        )
+        for judge, human in selected:
+            for result_id in (judge.result_id, human.result_id):
+                result = db.session.get(ExampleResult, result_id)
+                if result is None or result.run_id != run.id:
+                    raise CalibrationError(
+                        "Selected calibration evidence must belong to the requested run and split"
+                    )
+
+    pairs = pair_selected_attempts(selected, rubric=rubric)
+    return CalibrationCohort(
+        run_id=run.id,
+        dataset_split=run.dataset_split,
+        rubric_hash=rubric.content_hash,
+        pairs=pairs,
     )
 
 
