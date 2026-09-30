@@ -1,0 +1,97 @@
+"""Read-only data preparation for the calibration workbench."""
+
+from __future__ import annotations
+
+from collections import defaultdict
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+
+from evalbench.extensions import db
+from evalbench.models import EvaluationRun, ExampleResult, HumanLabelSet, JudgeAttempt
+
+
+@dataclass(frozen=True)
+class CalibrationEvidenceRow:
+    """Evidence choices available for one result in a selected evaluation run."""
+
+    result: ExampleResult
+    judge_attempts: tuple[JudgeAttempt, ...]
+    human_labels: tuple[HumanLabelSet, ...]
+    selected_judge_id: str | None
+    selected_human_id: str | None
+
+    @property
+    def is_partial(self) -> bool:
+        return bool(self.selected_judge_id) != bool(self.selected_human_id)
+
+    @property
+    def is_complete_pair(self) -> bool:
+        return bool(self.selected_judge_id and self.selected_human_id)
+
+
+def eligible_calibration_runs() -> list[EvaluationRun]:
+    """Return completed runs whose split can be represented honestly in a cohort."""
+    return list(
+        db.session.execute(
+            db.select(EvaluationRun)
+            .where(
+                EvaluationRun.status == "completed",
+                EvaluationRun.dataset_split.in_(("development", "holdout")),
+            )
+            .order_by(EvaluationRun.created_at.desc())
+        ).scalars()
+    )
+
+
+def evidence_rows(
+    run: EvaluationRun,
+    selected_by_result: Mapping[int, tuple[str | None, str | None]],
+) -> tuple[CalibrationEvidenceRow, ...]:
+    """Load evidence choices in bounded queries without mutating persisted records."""
+    results = tuple(run.results)
+    result_ids = tuple(result.id for result in results)
+    if not result_ids:
+        return ()
+
+    judges_by_result: defaultdict[int, list[JudgeAttempt]] = defaultdict(list)
+    humans_by_result: defaultdict[int, list[HumanLabelSet]] = defaultdict(list)
+    for attempt in db.session.execute(
+        db.select(JudgeAttempt)
+        .where(
+            JudgeAttempt.result_id.in_(result_ids),
+            JudgeAttempt.status == "completed",
+        )
+        .order_by(JudgeAttempt.created_at.desc())
+    ).scalars():
+        judges_by_result[attempt.result_id].append(attempt)
+    for label in db.session.execute(
+        db.select(HumanLabelSet)
+        .where(HumanLabelSet.result_id.in_(result_ids))
+        .order_by(HumanLabelSet.created_at.desc())
+    ).scalars():
+        humans_by_result[label.result_id].append(label)
+
+    return tuple(
+        CalibrationEvidenceRow(
+            result=result,
+            judge_attempts=tuple(judges_by_result[result.id]),
+            human_labels=tuple(humans_by_result[result.id]),
+            selected_judge_id=selected_by_result.get(result.id, (None, None))[0],
+            selected_human_id=selected_by_result.get(result.id, (None, None))[1],
+        )
+        for result in results
+    )
+
+
+def selected_evidence(
+    rows: Sequence[CalibrationEvidenceRow],
+) -> tuple[tuple[tuple[str, str], ...], tuple[int, ...]]:
+    """Return complete explicit pairs and result IDs with an incomplete selection."""
+    pairs: list[tuple[str, str]] = []
+    partial_result_ids: list[int] = []
+    for row in rows:
+        if row.is_partial:
+            partial_result_ids.append(row.result.id)
+        elif row.is_complete_pair:
+            pairs.append((row.selected_judge_id, row.selected_human_id))
+    return tuple(pairs), tuple(partial_result_ids)

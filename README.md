@@ -4,12 +4,12 @@
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-3.x-000000?logo=flask&logoColor=white)
-![Phase](https://img.shields.io/badge/status-Phase%204%20merged-2E8B57)
+![Phase](https://img.shields.io/badge/status-Phase%205%20active-2E8B57)
 ![Operation](https://img.shields.io/badge/tests-offline%20%26%20deterministic-F59E0B)
 
 EvalBench turns datasets, prompt versions, provider settings, and scoring rules into traceable evaluation runs. It stores per-example evidence, reuses identical responses through content-addressed caching, and makes regressions inspectable from a Flask dashboard.
 
-The default evaluation path is deliberately offline and deterministic. It proves that the infrastructure works without API keys or paid model calls. Phase 2 added an opt-in OpenAI Responses API adapter, a reproducible Hugging Face importer, and pinned SQuAD v2 and HotpotQA samples. The adapter is contract-tested but has not been credentialed smoke-tested. Phase 4 added paired comparisons, bootstrap intervals, and cost/latency reporting; RAG and calibrated model-based judging remain planned work.
+The default evaluation path is deliberately offline and deterministic. It proves that the infrastructure works without API keys or paid model calls. Phase 2 added an opt-in OpenAI Responses API adapter, a reproducible Hugging Face importer, and pinned SQuAD v2 and HotpotQA samples. The adapter is contract-tested but has not been credentialed smoke-tested. Phase 4 added paired comparisons, bootstrap intervals, and cost/latency reporting. Phase 5 adds versioned judge evidence, blind human labels, split-safe agreement reports, and an interactive calibration workbench; RAG and release-gate use of model judges remain planned work.
 
 ## Why this project exists
 
@@ -37,6 +37,7 @@ EvalBench is designed around those questions. It emphasizes measurable behavior,
 | Audit trail | Append-only run summaries, per-example results, and persisted correlation IDs |
 | Durable workflow execution | Inngest validation, generation, scoring, and atomic completion checkpoints with idempotent database replay protection |
 | Safe failure finalization | Exhausted retries produce categorized, sanitized diagnostics while preserving completed runs and partial evidence |
+| Judge calibration workbench | Explicit, split-safe judge/human evidence pairing with weighted-kappa, bootstrap uncertainty, confusion matrices, and disagreement review |
 | Web observability | Run dashboard, run-detail view, liveness, and database readiness routes |
 | Database compatibility | SQLite offline default and Supabase/PostgreSQL via psycopg, verified hosted TLS, bounded pools, and migration compatibility tests |
 | Local quality gate | Offline automated tests and Ruff static analysis; an opt-in local PostgreSQL service exercises migration and persistence compatibility |
@@ -60,6 +61,7 @@ flowchart LR
     O --> E["Deterministic scorers"]
     E --> DB[("SQLite or PostgreSQL / SQLAlchemy")]
     DB --> UI["Flask dashboard and run evidence"]
+    DB --> CAL["Read-only calibration workbench"]
     DB -. "Future" .-> CI["Regression gate in CI"]
 ```
 
@@ -99,6 +101,22 @@ aggregate metrics, and conflicting stored inputs raise `ComparisonError`.
 Legacy mixed-split runs are excluded. Score changes and pass/fail transitions are
 reported independently: a partial-credit improvement need not cross a passing threshold.
 The read-only comparison dashboard is available at `/compare`.
+
+### Calibrate a judge against human evidence (Phase 5)
+
+Open `/calibration` and choose a completed development or holdout run. For each
+result, select one completed judge attempt and one independently stored human
+label. EvalBench validates that every selected pair belongs to that exact run and
+split, uses the same versioned rubric, and shares one judge model/prompt
+configuration. It then reports exact agreement, quadratic weighted kappa,
+result-paired bootstrap uncertainty, criterion-level agreement, a score confusion
+matrix, and a disagreement ledger.
+
+The page is deliberately **read-only and advisory**: it makes no provider call,
+does not modify run scores or evidence, and does not authorize a release. Mixed
+historical runs cannot be selected. A defined report is evidence about the chosen
+cohort—not proof that the judge is generally reliable. This is an interview-ready
+example of separating model observability from model governance.
 
 ### Explore comparisons in the browser
 
@@ -590,7 +608,7 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
   leaderboard, drill-down, and read-only browser acceptance recorded in
   [docs/phase-4-acceptance.md](docs/phase-4-acceptance.md)
 - [x] **Infrastructure interlude:** secure Supabase/PostgreSQL integration merged in PR #21; hosted smoke verification remains operator-run
-- [ ] **Phase 5:** [versioned rubric and opt-in one-result judge execution](docs/judge-contracts.md), [blind human labels](docs/human-labels.md), and an [optional local Kev secondary decision model](docs/kev-secondary.md) implemented; judge-human calibration remains
+- [ ] **Phase 5:** [versioned rubric and opt-in one-result judge execution](docs/judge-contracts.md), [blind human labels](docs/human-labels.md), an [optional local Kev secondary decision model](docs/kev-secondary.md), split-safe agreement reporting, and the read-only calibration workbench are implemented; repeated/order-swapped calibration, annotation UX, and release-gate integration remain
 - [ ] **Phase 6:** CI regression policy with statistically justified thresholds
 - [ ] **Phase 7:** verified Docker/Render deployment and safe public demo mode
 
@@ -602,10 +620,10 @@ See [`plan.md`](plan.md) for completion criteria and [`Deploy.md`](Deploy.md) fo
 - The repository contains five automotive fixtures and eight external sample fixtures, which are appropriate for infrastructure verification but too small for model selection.
 - Exact match, token F1, answerability, and JSON Schema are implemented; retrieval and citation metrics remain planned.
 - Docker and Render execution have not yet been smoke-tested.
-- Comparison and cost-reporting mechanics are verified offline; no live-model performance benchmark or human-calibrated judge is claimed yet.
+- Comparison, cost-reporting, and calibration-report mechanics are verified offline; no live-model performance benchmark or generalizable human-calibrated judge claim is made yet.
 
 These are roadmap boundaries, not hidden caveats. Each one maps to a testable milestone above.
 
 ## Engineering story
 
-EvalBench demonstrates more than API integration: it shows dataset design, experiment reproducibility, provider abstraction, deterministic testing, persistence, caching, observability, and production-aware deployment planning. The strongest interview discussion is the decision to validate the evaluation harness offline first, then add live model complexity behind stable interfaces and measurable regression criteria.
+EvalBench demonstrates more than API integration: it shows dataset design, experiment reproducibility, provider abstraction, deterministic testing, persistence, caching, observability, and production-aware deployment planning. The strongest interview discussion is the decision to validate the evaluation harness offline first, then add model-judgment evidence behind explicit human calibration, uncertainty, and disagreement review rather than treating an LLM score as ground truth.

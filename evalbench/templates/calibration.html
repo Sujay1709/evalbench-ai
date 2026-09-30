@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Calibration workbench · EvalBench{% endblock %}
+{% block content %}
+<section class="calibration-masthead">
+  <p class="eyebrow">Phase 5 · advisory evidence</p>
+  <h1>Calibrate judgment before trusting it.</h1>
+  <p class="hero-copy">Pair a reviewer’s blinded label with a completed judge attempt from one explicit evaluation split. This report describes agreement; it never edits a run or becomes a release decision.</p>
+</section>
+
+<form class="calibration-form" method="get" action="{{ url_for('web.calibration') }}">
+  <section class="calibration-control" aria-labelledby="run-selection-title">
+    <div>
+      <p class="eyebrow">01 · scope</p>
+      <h2 id="run-selection-title">Select a completed run</h2>
+    </div>
+    <div class="control-field">
+      <label for="run">Evaluation run</label>
+      <select id="run" name="run" required aria-describedby="run-help">
+        <option value="">Choose a development or holdout run</option>
+        {% for candidate in runs %}
+        <option value="{{ candidate.id }}" {% if run and candidate.id == run.id %}selected{% endif %}>{{ candidate.id[:8] }} · {{ candidate.dataset_name }} / {{ candidate.dataset_split }} · {{ candidate.prompt_id }} {{ candidate.prompt_version }}</option>
+        {% endfor %}
+      </select>
+      <p id="run-help">Historical mixed-split runs are intentionally unavailable for calibration.</p>
+    </div>
+    <button class="secondary-button" type="submit">Load evidence</button>
+  </section>
+
+  {% if not runs %}
+  <section class="empty-state"><h2>No calibration-ready runs</h2><p>Complete a development or holdout evaluation, then return to select its evidence.</p><code>python -m evalbench.cli run --split development</code></section>
+  {% endif %}
+
+  {% if run %}
+  <section class="cohort-trace" aria-label="Cohort trace">
+    <div class="trace-heading"><span class="trace-kicker">Cohort trace</span><strong>Read-only evidence boundary</strong></div>
+    <div class="trace-item"><span>Split</span><strong>{{ run.dataset_split | title }}</strong></div>
+    <div class="trace-item"><span>Rubric</span><strong>grounded_qa / v1</strong></div>
+    <div class="trace-item"><span>Pairs</span><strong data-selection-count>{{ pair_count }} selected</strong></div>
+    <div class="trace-item" data-selection-state><span>Eligibility</span><strong>{% if partial_result_ids %}Complete each selected row{% elif pair_count %}Ready to validate{% else %}Select evidence{% endif %}</strong></div>
+  </section>
+
+  <section class="evidence-ledger-section" aria-labelledby="evidence-title">
+    <div class="section-heading">
+      <div><p class="eyebrow">02 · explicit pairing</p><h2 id="evidence-title">Evidence ledger</h2></div>
+      <p class="ledger-help">Only completed judge attempts are shown. Choose one judge attempt and one human label for the same result.</p>
+    </div>
+    {% if rows %}
+    <div class="table-wrap evidence-ledger" tabindex="0" role="region" aria-label="Calibration evidence ledger">
+      <table>
+        <caption>Selections are validated against the selected run, its split, rubric version, and judge configuration.</caption>
+        <thead><tr><th scope="col">Result</th><th scope="col">Judge attempt</th><th scope="col">Human label</th><th scope="col">Pair state</th></tr></thead>
+        <tbody>
+        {% for row in rows %}
+          <tr id="evidence-{{ row.result.id }}" data-evidence-row>
+            <th scope="row"><a href="{{ url_for('web.run_detail', run_id=run.id) }}#result-{{ row.result.id }}">{{ row.result.example_id }}</a><span class="mono-block">result {{ row.result.id }}</span></th>
+            <td>
+              <label class="visually-hidden" for="judge-{{ row.result.id }}">Judge attempt for {{ row.result.example_id }}</label>
+              <select id="judge-{{ row.result.id }}" name="judge-{{ row.result.id }}" data-pair-select="judge">
+                <option value="">No judge attempt selected</option>
+                {% for attempt in row.judge_attempts %}
+                <option value="{{ attempt.id }}" {% if row.selected_judge_id == attempt.id %}selected{% endif %}>{{ attempt.id[:8] }} · {{ attempt.judge_model }} · prompt {{ attempt.prompt_version }}</option>
+                {% endfor %}
+              </select>
+              {% if not row.judge_attempts %}<p class="field-note">No completed judge attempt recorded.</p>{% endif %}
+            </td>
+            <td>
+              <label class="visually-hidden" for="human-{{ row.result.id }}">Human label for {{ row.result.example_id }}</label>
+              <select id="human-{{ row.result.id }}" name="human-{{ row.result.id }}" data-pair-select="human">
+                <option value="">No human label selected</option>
+                {% for label in row.human_labels %}
+                <option value="{{ label.id }}" {% if row.selected_human_id == label.id %}selected{% endif %}>{{ label.id[:8] }} · {{ label.annotator_id }} · {{ label.created_at.strftime('%Y-%m-%d') }}</option>
+                {% endfor %}
+              </select>
+              {% if not row.human_labels %}<p class="field-note">No human label recorded.</p>{% endif %}
+            </td>
+            <td><span class="pair-state {% if row.is_complete_pair %}pair-state-complete{% elif row.is_partial %}pair-state-partial{% endif %}" data-pair-state>{% if row.is_complete_pair %}Complete pair{% elif row.is_partial %}Incomplete pair{% else %}Unselected{% endif %}</span></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><h3>No results in this run</h3><p>There is no per-example evidence available to pair.</p></div>
+    {% endif %}
+    <div class="calibration-actions">
+      <p data-selection-message role="status" aria-live="polite">{% if partial_result_ids %}Complete {{ partial_result_ids | length }} partial selection{{ '' if partial_result_ids | length == 1 else 's' }} before building a report.{% elif pair_count %}{{ pair_count }} complete pair{{ '' if pair_count == 1 else 's' }} selected. The report remains advisory.{% else %}Select one or more complete evidence pairs to build an advisory report.{% endif %}</p>
+      <button class="primary-button" type="submit" data-build-report {% if not pair_count or partial_result_ids %}disabled{% endif %}>Build agreement report</button>
+    </div>
+  </section>
+  {% endif %}
+</form>
+
+{% if error %}
+<section class="failure-summary" role="alert"><p class="eyebrow">Selection needs attention</p><h2>Report not created</h2><p>{{ error }}</p></section>
+{% endif %}
+
+{% if report and cohort %}
+<section class="calibration-report" aria-labelledby="report-title">
+  <div class="section-heading"><div><p class="eyebrow">03 · agreement report</p><h2 id="report-title">Evidence, uncertainty, and disagreements</h2></div><p class="calibration-advisory">Advisory only · source run remains unchanged</p></div>
+  <div class="agreement-grid">
+    <article class="agreement-field"><span>Exact agreement</span><strong>{{ '%.1f%%' | format(report.overall.exact_agreement * 100) }}</strong><p>{{ report.overall.rating_count }} criterion ratings across {{ report.overall.result_count }} results</p></article>
+    <article class="agreement-field"><span>Quadratic weighted kappa</span><strong>{% if report.overall.quadratic_weighted_kappa is not none %}{{ '%.3f' | format(report.overall.quadratic_weighted_kappa) }}{% else %}Undefined{% endif %}</strong><p>Ordinal agreement with larger penalties for larger score gaps.</p></article>
+    <article class="agreement-field"><span>95% bootstrap interval</span><strong>{% if report.overall.kappa_interval %}{{ '%.3f' | format(report.overall.kappa_interval.low) }}–{{ '%.3f' | format(report.overall.kappa_interval.high) }}{% else %}Unavailable{% endif %}</strong><p>{% if report.overall.kappa_interval %}{{ report.overall.kappa_interval.valid_resamples }} valid result-paired resamples{% else %}Not estimable from this selected cohort{% endif %}</p></article>
+  </div>
+  {% if report.advisories %}<div class="report-advisories" role="status"><h3>Interpret with care</h3><ul>{% for advisory in report.advisories %}<li>{{ advisory }}</li>{% endfor %}</ul></div>{% endif %}
+
+  <div class="report-layout">
+    <section class="report-panel" aria-labelledby="criterion-title"><h3 id="criterion-title">By rubric criterion</h3><div class="table-wrap"><table><thead><tr><th scope="col">Criterion</th><th scope="col">Ratings</th><th scope="col">Exact agreement</th><th scope="col">Weighted kappa</th></tr></thead><tbody>{% for criterion in report.by_criterion %}<tr><th scope="row">{{ criterion.criterion_id | replace('_', ' ') | title }}</th><td>{{ criterion.statistics.rating_count }}</td><td>{{ '%.1f%%' | format(criterion.statistics.exact_agreement * 100) }}</td><td>{% if criterion.statistics.quadratic_weighted_kappa is not none %}{{ '%.3f' | format(criterion.statistics.quadratic_weighted_kappa) }}{% else %}Undefined{% endif %}</td></tr>{% endfor %}</tbody></table></div></section>
+    <section class="report-panel" aria-labelledby="matrix-title"><h3 id="matrix-title">Score confusion matrix</h3><p>Rows are human scores; columns are judge scores.</p><div class="matrix-wrap"><table class="score-matrix"><thead><tr><th scope="col">Human \ Judge</th>{% for score in report.score_labels %}<th scope="col">{{ score }}</th>{% endfor %}</tr></thead><tbody>{% for row in report.overall.confusion_matrix %}<tr><th scope="row">{{ report.score_labels[loop.index0] }}</th>{% for value in row %}<td>{{ value }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div></section>
+  </div>
+
+  <section class="disagreement-ledger" aria-labelledby="disagreements-title"><h3 id="disagreements-title">Disagreement ledger</h3>{% if report.disagreements %}<div class="table-wrap"><table><thead><tr><th scope="col">Result</th><th scope="col">Criterion</th><th scope="col">Human</th><th scope="col">Judge</th></tr></thead><tbody>{% for item in report.disagreements %}<tr><th scope="row"><a href="#evidence-{{ item.result_id }}">Result {{ item.result_id }}</a></th><td>{{ item.criterion_id | replace('_', ' ') | title }}</td><td>{{ item.human_score }}</td><td>{{ item.judge_score }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="no-disagreements">All selected human and judge criterion scores match. That does not by itself establish generalizable judge quality.</p>{% endif %}</section>
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/calibration.js') }}" defer></script>{% endblock %}

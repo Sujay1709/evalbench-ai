@@ -49,7 +49,7 @@
     </div>
 
     {% for result in run.results %}
-      <article class="result-card">
+      <article class="result-card" id="result-{{ result.id }}">
         <div class="result-card-heading">
           <h3>{{ result.example_id }}</h3>
           <span class="status {{ 'status-completed' if result.passed else 'status-failed' }}">
