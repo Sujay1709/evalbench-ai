@@ -14,7 +14,7 @@
         <span class="brand-mark">E</span>
         <span>EvalBench</span>
       </a>
-      <nav aria-label="Main navigation"><a href="{{ url_for('web.comparison') }}">Compare runs</a><a href="{{ url_for('web.leaderboard') }}">Leaderboard</a></nav>
+      <nav aria-label="Main navigation"><a href="{{ url_for('web.comparison') }}">Compare runs</a><a href="{{ url_for('web.calibration') }}">Calibration</a><a href="{{ url_for('web.leaderboard') }}">Leaderboard</a></nav>
     </header>
 
     <main id="main-content">{% block content %}{% endblock %}</main>
@@ -22,5 +22,6 @@
     <footer>
       Reproducible evaluation. Measurable decisions. No API key required.
     </footer>
+    {% block scripts %}{% endblock %}
   </body>
 </html>

@@ -1,12 +1,26 @@
+from pathlib import Path
+
 from flask import Blueprint, abort, render_template, request
 
 from evalbench.comparisons import ComparisonError, compare_runs, paired_bootstrap
 from evalbench.comparisons.efficiency import build_leaderboards, summarize_efficiency
 from evalbench.extensions import db
+from evalbench.judges.calibration import (
+    CalibrationError,
+    build_calibration_report,
+    load_calibration_cohort,
+)
+from evalbench.judges.rubrics import load_rubric
 from evalbench.models import EvaluationRun
+from evalbench.web.calibration import (
+    eligible_calibration_runs,
+    evidence_rows,
+    selected_evidence,
+)
 from evalbench.web.comparison import load_segments
 
 web_blueprint = Blueprint("web", __name__)
+RUBRIC_PATH = Path(__file__).resolve().parents[2] / "rubrics" / "grounded_qa" / "v1.yaml"
 
 
 @web_blueprint.get("/")
@@ -113,3 +127,65 @@ def leaderboard():
     runs = db.session.execute(db.select(EvaluationRun)).scalars().all()
     boards, excluded = build_leaderboards(runs)
     return render_template("leaderboard.html", boards=boards, excluded=excluded)
+
+
+@web_blueprint.get("/calibration")
+def calibration():
+    """Render advisory judge-human agreement from an explicit evidence selection."""
+    runs = eligible_calibration_runs()
+    context = {
+        "runs": runs,
+        "run": None,
+        "rows": (),
+        "pair_count": 0,
+        "partial_result_ids": (),
+        "cohort": None,
+        "report": None,
+        "error": None,
+    }
+    run_id = request.args.get("run")
+    if not run_id:
+        return render_template("calibration.html", **context)
+
+    run = next((candidate for candidate in runs if candidate.id == run_id), None)
+    if run is None:
+        abort(404)
+
+    selections_by_result = {
+        result.id: (
+            request.args.get(f"judge-{result.id}") or None,
+            request.args.get(f"human-{result.id}") or None,
+        )
+        for result in run.results
+    }
+    rows = evidence_rows(run, selections_by_result)
+    selections, partial_result_ids = selected_evidence(rows)
+    context.update(
+        run=run,
+        rows=rows,
+        pair_count=len(selections),
+        partial_result_ids=partial_result_ids,
+    )
+    if partial_result_ids:
+        context["error"] = (
+            "Choose both a completed judge attempt and a human label for every "
+            "selected result before building a report."
+        )
+        return render_template("calibration.html", **context), 400
+    if not selections:
+        return render_template("calibration.html", **context)
+
+    try:
+        cohort = load_calibration_cohort(
+            run.id,
+            selections,
+            rubric=load_rubric(RUBRIC_PATH),
+        )
+        context.update(
+            cohort=cohort,
+            report=build_calibration_report(cohort.pairs),
+        )
+    except CalibrationError as exc:
+        context["error"] = str(exc)
+        return render_template("calibration.html", **context), 400
+    return render_template("calibration.html", **context)
