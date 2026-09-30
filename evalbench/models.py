@@ -89,6 +89,53 @@ class JudgeAttempt(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
 
 
+class PairwiseJudgeAttempt(db.Model):
+    """Append-only ordered preference evidence, separate from run scores."""
+
+    __tablename__ = "pairwise_judge_attempts"
+
+    id = db.Column(db.String(36), primary_key=True)
+    comparison_id = db.Column(db.String(36), nullable=False, index=True)
+    result_a_id = db.Column(
+        db.Integer, db.ForeignKey("example_results.id"), nullable=False, index=True
+    )
+    result_b_id = db.Column(
+        db.Integer, db.ForeignKey("example_results.id"), nullable=False, index=True
+    )
+    preferred_result_id = db.Column(db.Integer, db.ForeignKey("example_results.id"))
+    dataset_split = db.Column(db.String(24), nullable=False)
+    presentation_order = db.Column(db.String(2), nullable=False)
+    rubric_id = db.Column(db.String(40), nullable=False)
+    rubric_version = db.Column(db.String(12), nullable=False)
+    rubric_hash = db.Column(db.String(64), nullable=False)
+    prompt_version = db.Column(db.String(12), nullable=False)
+    prompt_template_hash = db.Column(db.String(64), nullable=False)
+    request_hash = db.Column(db.String(64), nullable=False)
+    request_text = db.Column(db.Text, nullable=False)
+    judge_model = db.Column(db.String(120), nullable=False)
+    status = db.Column(db.String(24), nullable=False)
+    response_id = db.Column(db.String(120))
+    response_json = db.Column(db.JSON)
+    choice_json = db.Column(db.JSON)
+    error_message = db.Column(db.Text)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+
+    __table_args__ = (
+        db.CheckConstraint("result_a_id != result_b_id", name="ck_pairwise_distinct_results"),
+        db.CheckConstraint(
+            "dataset_split IN ('development', 'holdout')", name="ck_pairwise_split"
+        ),
+        db.CheckConstraint("presentation_order IN ('ab', 'ba')", name="ck_pairwise_order"),
+        db.CheckConstraint(
+            "preferred_result_id IS NULL OR preferred_result_id IN (result_a_id, result_b_id)",
+            name="ck_pairwise_preferred_result",
+        ),
+        db.UniqueConstraint(
+            "comparison_id", "presentation_order", name="uq_pairwise_comparison_order"
+        ),
+    )
+
+
 class HumanLabelSet(db.Model):
     """One append-only, rubric-bound human annotation of an example result."""
 

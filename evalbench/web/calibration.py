@@ -8,10 +8,10 @@ from dataclasses import dataclass
 
 from evalbench.extensions import db
 from evalbench.judges.repeatability import (
-    RepeatedJudgment,
-    RepeatedScore,
     RepeatabilityError,
     RepeatabilityReport,
+    RepeatedJudgment,
+    RepeatedScore,
     summarize_repeated_judgments,
 )
 from evalbench.models import EvaluationRun, ExampleResult, HumanLabelSet, JudgeAttempt

@@ -24,6 +24,7 @@ def test_cli_exposes_run_subcommand():
     assert "queue" in result.output
     assert "import-hf" in result.output
     assert "judge" in result.output
+    assert "judge-pairwise" in result.output
     assert "label-human" in result.output
     assert "judge-kev" in result.output
 
@@ -105,6 +106,50 @@ def test_cli_judge_execute_records_one_mocked_request(monkeypatch, tmp_path):
     assert "Status: completed" in result.output
     assert "Advisory score: 1.000" in result.output
     assert len(fake.calls) == 1
+
+
+def test_cli_pairwise_dry_run_does_not_call_model_or_create_attempts(monkeypatch, tmp_path):
+    from evalbench.models import PairwiseJudgeAttempt
+
+    database_url = f"sqlite:///{tmp_path / 'judge-pairwise.db'}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.setenv("LLM_PROVIDER", "mock")
+    dataset_path = PROJECT_ROOT / "datasets" / "squad_v2" / "sample_v1.jsonl"
+    dataset = load_jsonl(dataset_path).select_split(EvaluationSplit.DEVELOPMENT)
+    app = create_app()
+    with app.app_context():
+        db.create_all()
+        runner_service = EvaluationRunner(MockProvider())
+        prompt = load_prompt(PROJECT_ROOT / "prompts" / "grounded_qa" / "v1.yaml")
+        run_a = runner_service.run(dataset, prompt)
+        run_b = runner_service.run(dataset, prompt)
+        run_a_id = run_a.id
+        run_b_id = run_b.id
+
+    def reject_execute(*args, **kwargs):
+        raise AssertionError("Pairwise dry run must not call the model")
+
+    monkeypatch.setattr("evalbench.cli.execute_pairwise_comparison", reject_execute)
+    preview = runner.invoke(
+        cli,
+        [
+            "judge-pairwise",
+            "--run-a",
+            run_a_id,
+            "--run-b",
+            run_b_id,
+            "--example-id",
+            "squad-v2-56ddde6b9a695914005b9628",
+            "--dataset",
+            str(dataset_path),
+        ],
+    )
+
+    assert preview.exit_code == 0
+    assert "Dry run" in preview.output
+    assert "no model requests or pairwise records created" in preview.output
+    with app.app_context():
+        assert db.session.execute(db.select(PairwiseJudgeAttempt)).scalars().all() == []
 
 
 def test_cli_run_defaults_to_development_split(tmp_path):

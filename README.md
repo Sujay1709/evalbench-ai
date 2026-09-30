@@ -9,7 +9,7 @@
 
 EvalBench turns datasets, prompt versions, provider settings, and scoring rules into traceable evaluation runs. It stores per-example evidence, reuses identical responses through content-addressed caching, and makes regressions inspectable from a Flask dashboard.
 
-The default evaluation path is deliberately offline and deterministic. It proves that the infrastructure works without API keys or paid model calls. Phase 2 added an opt-in OpenAI Responses API adapter, a reproducible Hugging Face importer, and pinned SQuAD v2 and HotpotQA samples. The adapter is contract-tested but has not been credentialed smoke-tested. Phase 4 added paired comparisons, bootstrap intervals, and cost/latency reporting. Phase 5 adds versioned judge evidence, blind human labels, split-safe agreement reports, and an interactive calibration workbench; RAG and release-gate use of model judges remain planned work.
+The default evaluation path is deliberately offline and deterministic. It proves that the infrastructure works without API keys or paid model calls. Phase 2 added an opt-in OpenAI Responses API adapter, a reproducible Hugging Face importer, and pinned SQuAD v2 and HotpotQA samples. The adapter is contract-tested but has not been credentialed smoke-tested. Phase 4 added paired comparisons, bootstrap intervals, and cost/latency reporting. Phase 5 adds versioned judge evidence, blind human labels, split-safe agreement reports, an interactive calibration workbench, and opt-in pairwise order-swap judging; RAG and release-gate use of model judges remain planned work.
 
 ## Why this project exists
 
@@ -121,8 +121,11 @@ example of separating model observability from model governance.
 When the same result has multiple completed attempts under an identical judge
 configuration and request hash, the workbench also reports pairwise exact score
 consistency by criterion. Repeated judge commands make additional provider calls;
-these measurements show stability, not correctness. Comparative answer-order
-swaps remain a separate Phase 5 item.
+these measurements show stability, not correctness. To compare two runs without
+position order confounding, use the opt-in `judge-pairwise` CLI command described
+in [the judge contract](docs/judge-contracts.md). It makes exactly two requests
+per example and stores append-only evidence; pairwise reports are not yet shown
+in the calibration workbench.
 
 ### Explore comparisons in the browser
 
@@ -614,7 +617,7 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
   leaderboard, drill-down, and read-only browser acceptance recorded in
   [docs/phase-4-acceptance.md](docs/phase-4-acceptance.md)
 - [x] **Infrastructure interlude:** secure Supabase/PostgreSQL integration merged in PR #21; hosted smoke verification remains operator-run
-- [ ] **Phase 5:** [versioned rubric and opt-in one-result judge execution](docs/judge-contracts.md), [blind human labels](docs/human-labels.md), an [optional local Kev secondary decision model](docs/kev-secondary.md), split-safe agreement reporting, the read-only calibration workbench, and same-request repeatability summaries are implemented; pairwise order-swapped calibration, annotation UX, adversarial examples, and release-gate integration remain
+- [ ] **Phase 5:** [versioned rubric and opt-in judge execution](docs/judge-contracts.md), [blind human labels](docs/human-labels.md), an [optional local Kev secondary decision model](docs/kev-secondary.md), split-safe agreement reporting, the read-only calibration workbench, same-request repeatability, and a pairwise order-swap CLI are implemented; pairwise workbench display, annotation UX, adversarial examples, and release-gate integration remain
 - [ ] **Phase 6:** CI regression policy with statistically justified thresholds
 - [ ] **Phase 7:** verified Docker/Render deployment and safe public demo mode
 
