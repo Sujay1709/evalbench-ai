@@ -422,9 +422,10 @@ in the database PR.
 **Current progress:** Versioned grounded-QA rubrics and strict output validation
 are joined by an opt-in, one-result judge command, independent append-only
 human labels, and an optional loopback-only Kev decision model with separate
-probability evidence. All have offline persistence tests. Agreement statistics,
-repeated/order-swapped calibration, annotation UX, and release-gate use remain;
-Phase 5 is not complete.
+probability evidence. Agreement statistics, split-safe cohorts, a read-only
+calibration workbench, and same-request repeatability summaries are implemented.
+Pairwise order-swapped calibration, annotation UX, adversarial examples, and
+release-gate use remain; Phase 5 is not complete.
 
 **Build:**
 
