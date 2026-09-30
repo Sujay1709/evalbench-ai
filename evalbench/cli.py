@@ -40,6 +40,12 @@ from evalbench.judges.kev import (
     validate_local_url,
     validate_pinned_run,
 )
+from evalbench.judges.pairwise import PairwiseJudgment, summarize_order_swaps
+from evalbench.judges.pairwise_execution import (
+    PairwisePreflightError,
+    execute_pairwise_comparison,
+    prepare_pairwise_comparison,
+)
 from evalbench.judges.rubrics import load_rubric
 from evalbench.prompts import load_prompt
 from evalbench.providers import build_provider
@@ -313,6 +319,128 @@ def judge_result(
             error_console.print(attempt.error_message)
         if attempt.status != "completed":
             raise typer.Exit(code=1)
+
+
+@cli.command("judge-pairwise")
+def judge_pairwise(
+    run_a_id: Annotated[str, typer.Option("--run-a", help="First completed run ID.")],
+    run_b_id: Annotated[str, typer.Option("--run-b", help="Second completed run ID.")],
+    example_id: Annotated[str, typer.Option("--example-id", help="Shared dataset example ID.")],
+    dataset_path: Annotated[Path, typer.Option("--dataset", help="Exact runs' dataset fixture.")],
+    split: Annotated[EvaluationSplit, typer.Option("--split")] = EvaluationSplit.DEVELOPMENT,
+    rubric_path: Annotated[Path, typer.Option("--rubric")] = DEFAULT_RUBRIC,
+    judge_model: Annotated[str | None, typer.Option("--judge-model")] = None,
+    execute: Annotated[
+        bool,
+        typer.Option("--execute", help="Authorize exactly two paid, order-swapped requests."),
+    ] = False,
+) -> None:
+    """Compare two run outputs in both orders; execution always makes two requests."""
+    settings = Settings()
+    if execute and settings.demo_read_only:
+        error_console.print("[red]Pairwise judge unavailable:[/red] DEMO_READ_ONLY is enabled")
+        raise typer.Exit(code=1)
+
+    app = create_app()
+    with app.app_context():
+        try:
+            prepare_database()
+            dataset = load_jsonl(dataset_path).select_split(split)
+            rubric = load_rubric(rubric_path)
+            prepared = prepare_pairwise_comparison(
+                run_a_id=run_a_id,
+                run_b_id=run_b_id,
+                example_id=example_id,
+                dataset=dataset,
+                rubric=rubric,
+            )
+        except (ValueError, OSError) as exc:
+            error_console.print(f"[red]Pairwise preflight failed:[/red] {exc}")
+            raise typer.Exit(code=1) from exc
+
+        if not execute:
+            console.print(
+                "[yellow]Dry run:[/yellow] no model requests or pairwise records created"
+            )
+            console.print(
+                f"Comparison: {prepared.comparison_id}  Example: {example_id}  "
+                f"Split: {prepared.dataset_split}"
+            )
+            console.print(
+                f"A/B request hash: {prepared.requests[0].request_hash}  "
+                f"B/A request hash: {prepared.requests[1].request_hash}"
+            )
+            console.print("Pass --execute --judge-model MODEL to authorize two capped requests")
+            return
+
+        api_key = settings.openai_api_key
+        if api_key is None or not api_key.get_secret_value().strip() or not judge_model:
+            error_console.print(
+                "[red]Pairwise judge configuration missing:[/red] "
+                "set OPENAI_API_KEY and --judge-model"
+            )
+            raise typer.Exit(code=1)
+        try:
+            attempts = execute_pairwise_comparison(
+                prepared,
+                rubric=rubric,
+                model=judge_model,
+                api_key=api_key.get_secret_value(),
+                timeout_seconds=settings.openai_timeout_seconds,
+            )
+        except PairwisePreflightError as exc:
+            error_console.print(f"[red]Pairwise preflight failed:[/red] {exc}")
+            raise typer.Exit(code=1) from exc
+
+        for attempt in attempts:
+            choice = attempt.choice_json or {}
+            if attempt.status == "completed":
+                preference = choice["preferred_result_id"] or "tie"
+            else:
+                preference = "unavailable"
+            console.print(
+                f"Order {attempt.presentation_order.upper()}: {attempt.status}  "
+                f"Preferred result: {preference}"
+            )
+            if attempt.error_message:
+                error_console.print(attempt.error_message)
+        console.print(f"Pairwise comparison ID: {prepared.comparison_id}")
+        if any(attempt.status != "completed" for attempt in attempts):
+            raise typer.Exit(code=1)
+        evidence = tuple(
+            PairwiseJudgment(
+                attempt_id=attempt.id,
+                comparison_id=attempt.comparison_id,
+                result_a_id=attempt.result_a_id,
+                result_b_id=attempt.result_b_id,
+                presentation_order=(
+                    (attempt.result_a_id, attempt.result_b_id)
+                    if attempt.presentation_order == "ab"
+                    else (attempt.result_b_id, attempt.result_a_id)
+                ),
+                preferred_result_id=attempt.preferred_result_id,
+                dataset_split=attempt.dataset_split,
+                status=attempt.status,
+                rubric_id=attempt.rubric_id,
+                rubric_version=attempt.rubric_version,
+                rubric_hash=attempt.rubric_hash,
+                judge_model=attempt.judge_model,
+                prompt_version=attempt.prompt_version,
+                prompt_template_hash=attempt.prompt_template_hash,
+            )
+            for attempt in attempts
+        )
+        report = summarize_order_swaps(evidence)
+        first_position_rate = (
+            "n/a"
+            if report.first_position_win_rate is None
+            else f"{report.first_position_win_rate:.0%}"
+        )
+        console.print(
+            f"Observed outcome change across order swap: {report.preference_flip_rate:.0%}  "
+            f"First-position win share: {first_position_rate}"
+        )
+        console.print("One comparison is descriptive evidence, not a judge-bias estimate.")
 
 
 @cli.command("label-human")

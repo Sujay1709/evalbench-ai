@@ -95,9 +95,37 @@ python -m evalbench.cli judge --run-id RUN_ID \
 Each invocation makes another paid provider request and records a separate,
 append-only attempt. The workbench shows a repeatability summary when two or more
 comparable attempts exist. A perfectly consistent judge can still be wrong; this
-metric measures stability, not agreement with human judgment. Pairwise answer
-order swaps require a separate comparative judge contract and are not included in
-this repeatability slice.
+metric measures stability, not agreement with human judgment.
+
+### Pairwise order-swap comparison
+
+Use two completed runs with the same benchmark and split, then preview a
+single-example pairwise comparison. Candidate order is swapped automatically:
+
+```bash
+python -m evalbench.cli judge-pairwise \
+  --run-a BASELINE_RUN_ID --run-b CANDIDATE_RUN_ID \
+  --example-id EXAMPLE_ID \
+  --dataset datasets/squad_v2/sample_v1.jsonl --split development
+```
+
+The preview makes no model requests or database writes. Adding `--execute` and
+`--judge-model MODEL` authorizes exactly two Responses API requests (A/B and B/A)
+for that example. This is an opt-in paid action; the current code does not retry
+provider calls. Requests use `store=False`, strict structured output, and
+evidence-quote validation. Both attempts are recorded in the append-only
+`pairwise_judge_attempts` table, including failures. Request text contains
+dataset context and candidate answers, so treat the table as potentially
+sensitive. No paid web endpoint is exposed.
+
+`evalbench.judges.pairwise.summarize_order_swaps` is the offline analysis core.
+It validates that both attempts use the same candidate results, explicit
+development or holdout split, rubric, judge model, and prompt-template hash, then
+reports changed preferences and how often the first presented candidate won.
+Development and holdout evidence cannot be combined. A stable preference across
+the two orders is not proof of correctness, and first-position wins are
+descriptive evidence rather than a causal bias estimate. Workbench display of
+persisted pairwise summaries is a follow-up slice.
 
 Run the offline checks with
 `.venv/bin/pytest tests/test_judge_contracts.py tests/test_judge_execution.py -q`.

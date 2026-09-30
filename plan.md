@@ -423,9 +423,11 @@ in the database PR.
 are joined by an opt-in, one-result judge command, independent append-only
 human labels, and an optional loopback-only Kev decision model with separate
 probability evidence. Agreement statistics, split-safe cohorts, a read-only
-calibration workbench, and same-request repeatability summaries are implemented.
-Pairwise order-swapped calibration, annotation UX, adversarial examples, and
-release-gate use remain; Phase 5 is not complete.
+calibration workbench, same-request repeatability summaries, and opt-in
+order-swapped pairwise request execution with append-only evidence are
+implemented and pass the offline test suite.
+Pairwise workbench display remains, along with annotation UX, adversarial
+examples, and release-gate use; Phase 5 is not complete.
 
 **Build:**
 
