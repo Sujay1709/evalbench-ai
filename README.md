@@ -37,7 +37,7 @@ EvalBench is designed around those questions. It emphasizes measurable behavior,
 | Audit trail | Append-only run summaries, per-example results, and persisted correlation IDs |
 | Durable workflow execution | Inngest validation, generation, scoring, and atomic completion checkpoints with idempotent database replay protection |
 | Safe failure finalization | Exhausted retries produce categorized, sanitized diagnostics while preserving completed runs and partial evidence |
-| Judge calibration workbench | Explicit, split-safe judge/human evidence pairing with weighted-kappa, bootstrap uncertainty, confusion matrices, and disagreement review |
+| Judge calibration workbench | Explicit, split-safe judge/human evidence pairing with weighted-kappa, bootstrap uncertainty, confusion matrices, disagreement review, and same-request repeatability summaries |
 | Web observability | Run dashboard, run-detail view, liveness, and database readiness routes |
 | Database compatibility | SQLite offline default and Supabase/PostgreSQL via psycopg, verified hosted TLS, bounded pools, and migration compatibility tests |
 | Local quality gate | Offline automated tests and Ruff static analysis; an opt-in local PostgreSQL service exercises migration and persistence compatibility |
@@ -117,6 +117,12 @@ does not modify run scores or evidence, and does not authorize a release. Mixed
 historical runs cannot be selected. A defined report is evidence about the chosen
 cohort—not proof that the judge is generally reliable. This is an interview-ready
 example of separating model observability from model governance.
+
+When the same result has multiple completed attempts under an identical judge
+configuration and request hash, the workbench also reports pairwise exact score
+consistency by criterion. Repeated judge commands make additional provider calls;
+these measurements show stability, not correctness. Comparative answer-order
+swaps remain a separate Phase 5 item.
 
 ### Explore comparisons in the browser
 
@@ -608,7 +614,7 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
   leaderboard, drill-down, and read-only browser acceptance recorded in
   [docs/phase-4-acceptance.md](docs/phase-4-acceptance.md)
 - [x] **Infrastructure interlude:** secure Supabase/PostgreSQL integration merged in PR #21; hosted smoke verification remains operator-run
-- [ ] **Phase 5:** [versioned rubric and opt-in one-result judge execution](docs/judge-contracts.md), [blind human labels](docs/human-labels.md), an [optional local Kev secondary decision model](docs/kev-secondary.md), split-safe agreement reporting, and the read-only calibration workbench are implemented; repeated/order-swapped calibration, annotation UX, and release-gate integration remain
+- [ ] **Phase 5:** [versioned rubric and opt-in one-result judge execution](docs/judge-contracts.md), [blind human labels](docs/human-labels.md), an [optional local Kev secondary decision model](docs/kev-secondary.md), split-safe agreement reporting, the read-only calibration workbench, and same-request repeatability summaries are implemented; pairwise order-swapped calibration, annotation UX, adversarial examples, and release-gate integration remain
 - [ ] **Phase 6:** CI regression policy with statistically justified thresholds
 - [ ] **Phase 7:** verified Docker/Render deployment and safe public demo mode
 

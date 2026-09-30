@@ -39,6 +39,28 @@
     <div class="trace-item" data-selection-state><span>Eligibility</span><strong>{% if partial_result_ids %}Complete each selected row{% elif pair_count %}Ready to validate{% else %}Select evidence{% endif %}</strong></div>
   </section>
 
+  <section class="repeatability-section" aria-labelledby="repeatability-title">
+    <div class="section-heading">
+      <div><p class="eyebrow">Existing judge attempts · same request only</p><h2 id="repeatability-title">Repeatability check</h2></div>
+      <p class="ledger-help">This measures whether identical judge configurations return the same rubric scores when rerun on the same result. Consistency does not establish correctness.</p>
+    </div>
+    {% if repeatability %}
+    <div class="repeatability-grid">
+      {% for item in repeatability %}
+      <article class="repeatability-card">
+        <div class="result-card-heading"><h3>{{ item.example_id }}</h3>{% if item.report %}<span class="pair-state {% if item.report.exact_agreement == 1 %}pair-state-complete{% elif item.report.exact_agreement == 0 %}pair-state-partial{% endif %}">{{ '%.1f%%' | format(item.report.exact_agreement * 100) }} exact agreement</span>{% else %}<span class="pair-state pair-state-partial">Not comparable</span>{% endif %}</div>
+        {% if item.report %}
+        <p class="result-meta">{{ item.report.attempt_ids | length }} repeats · {{ item.report.attempt_pair_count }} attempt pairs · {{ item.report.judge_model }} · prompt {{ item.report.prompt_version }}</p>
+        <ul class="repeatability-criteria">{% for criterion in item.report.criteria %}<li><span>{{ criterion.criterion_id | replace('_', ' ') | title }}</span><strong>{{ '%.1f%%' | format(criterion.exact_agreement * 100) }}</strong><span>score range {{ criterion.score_min }}–{{ criterion.score_max }}</span></li>{% endfor %}</ul>
+        {% else %}<p role="status">{{ item.error }}</p>{% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="repeatability-empty">No same-request repeats are stored for this run yet. Re-run the same opt-in judge command on an example to collect a consistency sample; each call creates a separate append-only attempt.</p>
+    {% endif %}
+  </section>
+
   <section class="evidence-ledger-section" aria-labelledby="evidence-title">
     <div class="section-heading">
       <div><p class="eyebrow">02 · explicit pairing</p><h2 id="evidence-title">Evidence ledger</h2></div>

@@ -74,8 +74,30 @@ datasets, candidate answers, and judge output may contain private content.
 The CLI is disabled for execution in `DEMO_READ_ONLY` mode and no paid web
 endpoint is exposed.
 
-Future slices must compare repeated and order-swapped judgments with human
-labels, and report agreement and failure modes before operational use.
+### Repeatability check
+
+The calibration workbench compares repeated completed attempts only when they
+share the exact result, rubric identity, judge model, prompt version, and request
+hash. For each rubric criterion, it compares every pair of attempts and reports
+the fraction with identical 0/1/2 scores, plus the observed score range. The
+overall percentage is across all criterion-level attempt-pair comparisons.
+
+To collect a repeatability sample, execute the same opt-in command on the same
+run and example at least twice, keeping the judge model and prompt fixed:
+
+```bash
+python -m evalbench.cli judge --run-id RUN_ID \
+  --example-id squad-v2-56ddde6b9a695914005b9628 \
+  --dataset datasets/squad_v2/sample_v1.jsonl --split development \
+  --judge-model YOUR_AVAILABLE_MODEL --execute
+```
+
+Each invocation makes another paid provider request and records a separate,
+append-only attempt. The workbench shows a repeatability summary when two or more
+comparable attempts exist. A perfectly consistent judge can still be wrong; this
+metric measures stability, not agreement with human judgment. Pairwise answer
+order swaps require a separate comparative judge contract and are not included in
+this repeatability slice.
 
 Run the offline checks with
 `.venv/bin/pytest tests/test_judge_contracts.py tests/test_judge_execution.py -q`.

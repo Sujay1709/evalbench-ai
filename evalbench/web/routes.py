@@ -15,6 +15,7 @@ from evalbench.models import EvaluationRun
 from evalbench.web.calibration import (
     eligible_calibration_runs,
     evidence_rows,
+    repeatability_evidence,
     selected_evidence,
 )
 from evalbench.web.comparison import load_segments
@@ -137,6 +138,7 @@ def calibration():
         "runs": runs,
         "run": None,
         "rows": (),
+        "repeatability": (),
         "pair_count": 0,
         "partial_result_ids": (),
         "cohort": None,
@@ -159,10 +161,12 @@ def calibration():
         for result in run.results
     }
     rows = evidence_rows(run, selections_by_result)
+    repeatability = repeatability_evidence(rows)
     selections, partial_result_ids = selected_evidence(rows)
     context.update(
         run=run,
         rows=rows,
+        repeatability=repeatability,
         pair_count=len(selections),
         partial_result_ids=partial_result_ids,
     )
