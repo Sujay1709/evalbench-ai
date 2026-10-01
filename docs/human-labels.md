@@ -29,9 +29,20 @@ choose which submission(s) to compare; duplicates are **not** silently averaged.
 
 These records do not change deterministic run scores or existing judge
 attempts. The CLI does not prove that a label is correct or that annotators
-agree. Human-label agreement statistics, a disagreement queue, adversarial
-examples, and a calibrated release policy remain later Phase 5 work. A React
-annotation UI is also separate, after read-only frontend migration acceptance.
+agree. The calibration workbench reports judge-human agreement, disagreements,
+repeated-score stability, and stored pairwise order-swap evidence. Its optional
+holdout readiness check applies operator-selected minimum sample, agreement,
+and confidence-bound thresholds without changing a run or automatically
+authorizing deployment.
+
+The versioned adversarial automotive fixture covers prompt injection in
+evidence, false premises, absent facts, and conflicting facts. It is a
+deterministic contract fixture—not an estimate of production robustness.
+
+There is no browser-side label submission. The current browser workbench is
+read-only, and the demo has no authentication system. A future annotation UI
+must first add explicit authentication and CSRF protection; until then, use the
+blind CLI above.
 
 The database may contain private evaluation inputs and responses. Protect it
 accordingly; no public labeling endpoint or authentication scheme is added here.

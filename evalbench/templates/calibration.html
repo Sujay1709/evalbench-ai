@@ -61,6 +61,27 @@
     {% endif %}
   </section>
 
+  <section class="repeatability-section pairwise-section" aria-labelledby="pairwise-title">
+    <div class="section-heading">
+      <div><p class="eyebrow">A/B · order-swap evidence</p><h2 id="pairwise-title">Position sensitivity</h2></div>
+      <p class="ledger-help">A/B and B/A decisions are normalized to the same result identities. This is descriptive evidence, not proof that position caused a preference.</p>
+    </div>
+    {% if pairwise %}
+    <div class="repeatability-grid">
+      {% for item in pairwise %}
+      <article class="repeatability-card">
+        {% if item.report %}
+        <div class="result-card-heading"><h3>{{ item.report.judge_model }}</h3><span class="pair-state {% if item.report.preference_flip_rate == 0 %}pair-state-complete{% elif item.report.preference_flip_rate > 0 %}pair-state-partial{% endif %}">{{ '%.1f%%' | format(item.report.preference_flip_rate * 100) }} flips</span></div>
+        <p class="result-meta">{{ item.report.comparison_count }} order-swapped comparisons · {{ item.report.dataset_split }} · prompt {{ item.report.prompt_version }}</p>
+        <p class="pairwise-stat">First-position win share: {% if item.report.first_position_win_rate is not none %}{{ '%.1f%%' | format(item.report.first_position_win_rate * 100) }} across {{ item.report.decisive_judgment_count }} decisive judgments{% else %}unavailable (no decisive judgments){% endif %}</p>
+        <ul class="pairwise-comparisons">{% for comparison in item.report.comparisons %}<li><span>Comparison {{ comparison.comparison_id[:8] }}</span><strong>{% if comparison.preference_changed %}Preference changed{% else %}Preference stable{% endif %}</strong></li>{% endfor %}</ul>
+        {% else %}<p class="pair-state pair-state-partial">Incomplete pairwise sample</p><p role="status">{{ item.error }}</p>{% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}<p class="repeatability-empty">No pairwise judge evidence is stored for this run yet. Use the opt-in <code>judge-pairwise</code> command to collect an A/B and B/A comparison.</p>{% endif %}
+  </section>
+
   <section class="evidence-ledger-section" aria-labelledby="evidence-title">
     <div class="section-heading">
       <div><p class="eyebrow">02 · explicit pairing</p><h2 id="evidence-title">Evidence ledger</h2></div>
@@ -132,6 +153,22 @@
   </div>
 
   <section class="disagreement-ledger" aria-labelledby="disagreements-title"><h3 id="disagreements-title">Disagreement ledger</h3>{% if report.disagreements %}<div class="table-wrap"><table><thead><tr><th scope="col">Result</th><th scope="col">Criterion</th><th scope="col">Human</th><th scope="col">Judge</th></tr></thead><tbody>{% for item in report.disagreements %}<tr><th scope="row"><a href="#evidence-{{ item.result_id }}">Result {{ item.result_id }}</a></th><td>{{ item.criterion_id | replace('_', ' ') | title }}</td><td>{{ item.human_score }}</td><td>{{ item.judge_score }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="no-disagreements">All selected human and judge criterion scores match. That does not by itself establish generalizable judge quality.</p>{% endif %}</section>
+
+  <section class="readiness-panel" aria-labelledby="readiness-title">
+      <div class="section-heading"><div><p class="eyebrow">04 · optional policy check</p><h3 id="readiness-title">Holdout calibration readiness</h3></div><p class="ledger-help">Reserve holdout for the final check after development tuning. Repeatedly changing judge settings against holdout can leak evaluation data. This checks only the selected human-labeled cohort against thresholds you set; it is not a quality guarantee and never changes a run.</p></div>
+    {% if run.dataset_split == 'holdout' %}
+    <form class="readiness-form" method="get" action="{{ url_for('web.calibration') }}">
+      <input type="hidden" name="run" value="{{ run.id }}">
+      {% for row in rows if row.is_complete_pair %}<input type="hidden" name="judge-{{ row.result.id }}" value="{{ row.selected_judge_id }}"><input type="hidden" name="human-{{ row.result.id }}" value="{{ row.selected_human_id }}">{% endfor %}
+      <input type="hidden" name="gate" value="1">
+      <label>Minimum labeled results<input name="minimum_results" type="number" min="2" value="{{ readiness_policy.minimum_results }}" required></label>
+      <label>Minimum exact agreement<input name="minimum_exact_agreement" type="number" min="0" max="1" step="0.01" value="{{ readiness_policy.minimum_exact_agreement }}" required></label>
+      <label>Minimum kappa lower bound<input name="minimum_kappa_lower_bound" type="number" min="-1" max="1" step="0.01" value="{{ readiness_policy.minimum_kappa_lower_bound }}" required></label>
+      <button class="secondary-button" type="submit">Check holdout readiness</button>
+    </form>
+    {% if readiness %}<div class="readiness-result {% if readiness.eligible %}readiness-pass{% else %}readiness-fail{% endif %}" role="status"><h4>{{ 'Meets selected thresholds' if readiness.eligible else 'Does not meet selected thresholds' }}</h4><ul>{% for check in readiness.checks %}<li>{{ check }}</li>{% endfor %}</ul>{% if readiness.failures %}<p>Reasons: {{ readiness.failures | join('; ') }}</p>{% endif %}</div>{% endif %}
+    {% else %}<p class="field-note">Select a holdout run to evaluate calibration readiness. Development evidence cannot authorize this check.</p>{% endif %}
+  </section>
 </section>
 {% endif %}
 {% endblock %}

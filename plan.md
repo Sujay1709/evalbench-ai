@@ -424,10 +424,17 @@ are joined by an opt-in, one-result judge command, independent append-only
 human labels, and an optional loopback-only Kev decision model with separate
 probability evidence. Agreement statistics, split-safe cohorts, a read-only
 calibration workbench, same-request repeatability summaries, and opt-in
-order-swapped pairwise request execution with append-only evidence are
-implemented and pass the offline test suite.
-Pairwise workbench display remains, along with annotation UX, adversarial
-examples, and release-gate use; Phase 5 is not complete.
+order-swapped pairwise execution/display are implemented. The workbench also
+provides a configurable holdout-only readiness check, and a versioned
+adversarial automotive fixture covers injected context instructions, false
+premises, missing facts, and conflicting evidence. Blind annotation is
+available through the interactive CLI; browser-side writes remain intentionally
+deferred until authentication and CSRF protection are implemented.
+
+**Implementation status:** The planned offline-tested Phase 5 components are
+complete. Calibration results still depend on collecting genuine independent
+human labels and running the opted-in judge on a meaningful holdout sample;
+fixtures and tests must not be presented as empirical model-quality results.
 
 **Build:**
 
@@ -437,7 +444,10 @@ examples, and release-gate use; Phase 5 is not complete.
 - Agreement statistics, confusion matrix, and disagreement review.
 - Deliberately difficult/adversarial examples.
 
-**Done when:** We can report judge-human agreement, sample size, known failure modes, and a reproducibility tolerance supported by repeated tests.
+**Done when:** The workbench can report judge-human agreement, sample size,
+known failure modes, and a reproducibility tolerance supported by repeated
+tests. Before making a real-world reliability claim, collect independent labels
+for a representative holdout cohort and document its actual results and limits.
 
 ### Phase 6 - CI regression gate
 

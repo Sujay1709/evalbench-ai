@@ -119,13 +119,33 @@ cohort—not proof that the judge is generally reliable. This is an interview-re
 example of separating model observability from model governance.
 
 When the same result has multiple completed attempts under an identical judge
-configuration and request hash, the workbench also reports pairwise exact score
-consistency by criterion. Repeated judge commands make additional provider calls;
-these measurements show stability, not correctness. To compare two runs without
-position order confounding, use the opt-in `judge-pairwise` CLI command described
-in [the judge contract](docs/judge-contracts.md). It makes exactly two requests
-per example and stores append-only evidence; pairwise reports are not yet shown
-in the calibration workbench.
+configuration and request hash, the workbench reports repeated-score agreement.
+It also summarizes stored A/B and B/A pairwise attempts by preference-flip rate
+and first-position win share. Repeated and pairwise judge commands each make
+additional provider calls; these measurements show consistency and possible
+position sensitivity, not correctness or causation.
+
+Human labeling remains an interactive, blind CLI workflow. The command displays
+the evidence and rubric anchors without showing deterministic or judge scores;
+see [the labeling guide](docs/human-labels.md). There is intentionally no
+browser-side label submission because the Jinja demo has no authentication
+system. The current workbench provides read-only analysis. An authenticated
+annotation UI belongs in the separate frontend/auth design.
+
+For a release-readiness check, select a holdout run, pair its completed judge
+attempts with independent human labels, build the report, then set minimum
+sample, exact-agreement, and weighted-kappa lower-bound thresholds in the
+**Holdout calibration readiness** panel. This opt-in check is read-only and
+fails closed when the cohort is development-only, too small, or lacks a
+bootstrap interval. Thresholds are operator policy, not empirically universal
+defaults; a passing result is not a quality guarantee.
+
+The separate
+[`adversarial_v1.jsonl`](datasets/automotive_qa/adversarial_v1.jsonl) automotive
+fixture covers prompt injection inside context, false premises, missing facts,
+and conflicting evidence. It has two examples per split; development is the safe
+default. These deterministic examples test expected behavior, not real-world
+model robustness.
 
 ### Explore comparisons in the browser
 
@@ -617,7 +637,7 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
   leaderboard, drill-down, and read-only browser acceptance recorded in
   [docs/phase-4-acceptance.md](docs/phase-4-acceptance.md)
 - [x] **Infrastructure interlude:** secure Supabase/PostgreSQL integration merged in PR #21; hosted smoke verification remains operator-run
-- [ ] **Phase 5:** [versioned rubric and opt-in judge execution](docs/judge-contracts.md), [blind human labels](docs/human-labels.md), an [optional local Kev secondary decision model](docs/kev-secondary.md), split-safe agreement reporting, the read-only calibration workbench, same-request repeatability, and a pairwise order-swap CLI are implemented; pairwise workbench display, annotation UX, adversarial examples, and release-gate integration remain
+- [x] **Phase 5 implementation:** [versioned rubric and opt-in judge execution](docs/judge-contracts.md), [blind human labels](docs/human-labels.md), optional local Kev evidence, split-safe agreement reporting, repeated-score summaries, pairwise order-swap display, adversarial automotive fixtures, and a configurable holdout readiness check. Real-world reliability claims still require a representative independently labeled holdout cohort; browser-side annotation remains deferred until authentication/CSRF support exists.
 - [ ] **Phase 6:** CI regression policy with statistically justified thresholds
 - [ ] **Phase 7:** verified Docker/Render deployment and safe public demo mode
 

@@ -37,6 +37,18 @@ def test_dataset_selects_one_split_and_rehashes_the_exact_subset():
     assert development.content_hash != dataset.content_hash
 
 
+def test_adversarial_automotive_fixture_covers_injection_false_premise_and_abstention():
+    dataset = load_jsonl(PROJECT_ROOT / "datasets" / "automotive_qa" / "adversarial_v1.jsonl")
+
+    assert len(dataset.examples) == 4
+    assert len(dataset.select_split(EvaluationSplit.DEVELOPMENT).examples) == 2
+    assert len(dataset.select_split(EvaluationSplit.HOLDOUT).examples) == 2
+    assert {"prompt-injection", "false-premise", "conflicting-evidence"} <= {
+        tag for example in dataset.examples for tag in example.tags
+    }
+    assert all(example.difficulty == "hard" for example in dataset.examples)
+
+
 def test_dataset_reports_when_requested_split_is_missing(tmp_path):
     dataset_path = tmp_path / "development_only.jsonl"
     dataset_path.write_text(
