@@ -7,6 +7,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from evalbench.extensions import db
+from evalbench.judges.pairwise import (
+    PairwiseCalibrationError,
+    PairwiseJudgment,
+    PairwiseOrderSwapReport,
+    summarize_order_swaps,
+)
 from evalbench.judges.repeatability import (
     RepeatabilityError,
     RepeatabilityReport,
@@ -14,7 +20,13 @@ from evalbench.judges.repeatability import (
     RepeatedScore,
     summarize_repeated_judgments,
 )
-from evalbench.models import EvaluationRun, ExampleResult, HumanLabelSet, JudgeAttempt
+from evalbench.models import (
+    EvaluationRun,
+    ExampleResult,
+    HumanLabelSet,
+    JudgeAttempt,
+    PairwiseJudgeAttempt,
+)
 
 
 @dataclass(frozen=True)
@@ -42,6 +54,14 @@ class RepeatabilityEvidence:
 
     example_id: str
     report: RepeatabilityReport | None
+    error: str | None
+
+
+@dataclass(frozen=True)
+class PairwiseEvidence:
+    """Completed order-swap summary, or a precise incomplete-sample advisory."""
+
+    report: PairwiseOrderSwapReport | None
     error: str | None
 
 
@@ -163,3 +183,65 @@ def repeatability_evidence(
             else:
                 evidence.append(RepeatabilityEvidence(row.result.example_id, report, None))
     return tuple(sorted(evidence, key=lambda item: (item.example_id, item.error or "")))
+
+
+def pairwise_evidence(run: EvaluationRun) -> tuple[PairwiseEvidence, ...]:
+    """Summarize pairwise attempts touching this run without writing records."""
+    result_ids = tuple(result.id for result in run.results)
+    if not result_ids:
+        return ()
+
+    attempts = db.session.execute(
+        db.select(PairwiseJudgeAttempt)
+        .where(
+            db.or_(
+                PairwiseJudgeAttempt.result_a_id.in_(result_ids),
+                PairwiseJudgeAttempt.result_b_id.in_(result_ids),
+            )
+        )
+        .order_by(PairwiseJudgeAttempt.created_at)
+    ).scalars()
+    groups: defaultdict[tuple[str, ...], list[PairwiseJudgment]] = defaultdict(list)
+    for attempt in attempts:
+        identity = (
+            attempt.dataset_split,
+            attempt.rubric_id,
+            attempt.rubric_version,
+            attempt.rubric_hash,
+            attempt.judge_model,
+            attempt.prompt_version,
+            attempt.prompt_template_hash,
+        )
+        order = (
+            (attempt.result_a_id, attempt.result_b_id)
+            if attempt.presentation_order == "ab"
+            else (attempt.result_b_id, attempt.result_a_id)
+        )
+        groups[identity].append(
+            PairwiseJudgment(
+                attempt_id=attempt.id,
+                comparison_id=attempt.comparison_id,
+                result_a_id=attempt.result_a_id,
+                result_b_id=attempt.result_b_id,
+                presentation_order=order,
+                preferred_result_id=(attempt.choice_json or {}).get("preferred_result_id"),
+                dataset_split=attempt.dataset_split,
+                status=attempt.status,
+                rubric_id=attempt.rubric_id,
+                rubric_version=attempt.rubric_version,
+                rubric_hash=attempt.rubric_hash,
+                judge_model=attempt.judge_model,
+                prompt_version=attempt.prompt_version,
+                prompt_template_hash=attempt.prompt_template_hash,
+            )
+        )
+
+    evidence: list[PairwiseEvidence] = []
+    for judgments in groups.values():
+        try:
+            report = summarize_order_swaps(judgments)
+        except PairwiseCalibrationError as exc:
+            evidence.append(PairwiseEvidence(None, str(exc)))
+        else:
+            evidence.append(PairwiseEvidence(report, None))
+    return tuple(evidence)

@@ -2,7 +2,13 @@
 
 from evalbench.extensions import db
 from evalbench.judges.rubrics import load_rubric
-from evalbench.models import EvaluationRun, ExampleResult, HumanLabelSet, JudgeAttempt
+from evalbench.models import (
+    EvaluationRun,
+    ExampleResult,
+    HumanLabelSet,
+    JudgeAttempt,
+    PairwiseJudgeAttempt,
+)
 from tests.conftest import PROJECT_ROOT
 
 RUBRIC_PATH = PROJECT_ROOT / "rubrics" / "grounded_qa" / "v1.yaml"
@@ -56,8 +62,7 @@ def _evidence(
         judge_model="fixture-judge",
         status="completed",
         assessments_json=[
-            {"criterion_id": criterion.id, "score": judge_score}
-            for criterion in rubric.criteria
+            {"criterion_id": criterion.id, "score": judge_score} for criterion in rubric.criteria
         ],
     )
     human = HumanLabelSet(
@@ -69,8 +74,7 @@ def _evidence(
         annotator_id="labeler_01",
         presentation_hash="c" * 64,
         ratings_json=[
-            {"criterion_id": criterion.id, "score": human_score}
-            for criterion in rubric.criteria
+            {"criterion_id": criterion.id, "score": human_score} for criterion in rubric.criteria
         ],
     )
     db.session.add_all((judge, human))
@@ -162,3 +166,116 @@ def test_calibration_workbench_hides_legacy_mixed_runs(app, client):
     assert index.status_code == 200
     assert b"legacy-run" not in index.data
     assert direct_request.status_code == 404
+
+
+def test_workbench_summarizes_paired_order_swaps(app, client):
+    with app.app_context():
+        run = _run("pairwise-workbench-run")
+        first, second = (
+            _evidence(run, suffix="pairwise-a", human_score=2, judge_score=2),
+            _evidence(run, suffix="pairwise-b", human_score=1, judge_score=1),
+        )
+        first_result_id, second_result_id = first[0].id, second[0].id
+        db.session.add_all(
+            (
+                PairwiseJudgeAttempt(
+                    id="pairwise-attempt-ab",
+                    comparison_id="pairwise-comparison",
+                    result_a_id=first_result_id,
+                    result_b_id=second_result_id,
+                    preferred_result_id=first_result_id,
+                    dataset_split="development",
+                    presentation_order="ab",
+                    rubric_id="grounded_qa",
+                    rubric_version="v1",
+                    rubric_hash="d" * 64,
+                    prompt_version="v1",
+                    prompt_template_hash="e" * 64,
+                    request_hash="f" * 64,
+                    request_text="A/B request",
+                    judge_model="fixture-pairwise-judge",
+                    status="completed",
+                    choice_json={"preferred_result_id": first_result_id},
+                ),
+                PairwiseJudgeAttempt(
+                    id="pairwise-attempt-ba",
+                    comparison_id="pairwise-comparison",
+                    result_a_id=first_result_id,
+                    result_b_id=second_result_id,
+                    preferred_result_id=first_result_id,
+                    dataset_split="development",
+                    presentation_order="ba",
+                    rubric_id="grounded_qa",
+                    rubric_version="v1",
+                    rubric_hash="d" * 64,
+                    prompt_version="v1",
+                    prompt_template_hash="e" * 64,
+                    request_hash="0" * 64,
+                    request_text="B/A request",
+                    judge_model="fixture-pairwise-judge",
+                    status="completed",
+                    choice_json={"preferred_result_id": first_result_id},
+                ),
+            )
+        )
+        run_id = run.id
+        db.session.commit()
+
+    response = client.get("/calibration", query_string={"run": run_id})
+
+    assert response.status_code == 200
+    assert b"Position sensitivity" in response.data
+    assert b"0.0% flips" in response.data
+    assert b"50.0%" in response.data
+
+
+def test_readiness_check_requires_holdout_and_reports_selected_thresholds(app, client):
+    with app.app_context():
+        run = _run("readiness-holdout", dataset_split="holdout")
+        evidence = [
+            _evidence(
+                run,
+                suffix=f"readiness-{index}",
+                human_score=score,
+                judge_score=score,
+            )
+            for index, score in enumerate((0, 1, 2, 0))
+        ]
+        query = {
+            "run": run.id,
+            "gate": "1",
+            "minimum_results": "4",
+            "minimum_exact_agreement": "0.9",
+            "minimum_kappa_lower_bound": "0.8",
+        }
+        for result, judge, human in evidence:
+            query[f"judge-{result.id}"] = judge.id
+            query[f"human-{result.id}"] = human.id
+        db.session.commit()
+
+    response = client.get("/calibration", query_string=query)
+
+    assert response.status_code == 200
+    assert b"Holdout calibration readiness" in response.data
+    assert b"Meets selected thresholds" in response.data
+
+
+def test_readiness_check_rejects_invalid_thresholds(app, client):
+    with app.app_context():
+        run = _run("readiness-invalid", dataset_split="holdout")
+        result, judge, human = _evidence(
+            run, suffix="readiness-invalid", human_score=2, judge_score=2
+        )
+        query = {
+            "run": run.id,
+            "gate": "1",
+            "minimum_results": "1",
+            f"judge-{result.id}": judge.id,
+            f"human-{result.id}": human.id,
+        }
+        db.session.commit()
+
+    response = client.get("/calibration", query_string=query)
+
+    assert response.status_code == 400
+    assert b"Invalid readiness policy" in response.data

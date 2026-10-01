@@ -10,11 +10,16 @@ from evalbench.judges.calibration import (
     build_calibration_report,
     load_calibration_cohort,
 )
+from evalbench.judges.calibration_gate import (
+    CalibrationReadinessPolicy,
+    assess_calibration_readiness,
+)
 from evalbench.judges.rubrics import load_rubric
 from evalbench.models import EvaluationRun
 from evalbench.web.calibration import (
     eligible_calibration_runs,
     evidence_rows,
+    pairwise_evidence,
     repeatability_evidence,
     selected_evidence,
 )
@@ -139,11 +144,15 @@ def calibration():
         "run": None,
         "rows": (),
         "repeatability": (),
+        "pairwise": (),
         "pair_count": 0,
         "partial_result_ids": (),
         "cohort": None,
         "report": None,
         "error": None,
+        "readiness": None,
+        "readiness_policy": CalibrationReadinessPolicy(),
+        "selections": (),
     }
     run_id = request.args.get("run")
     if not run_id:
@@ -162,13 +171,16 @@ def calibration():
     }
     rows = evidence_rows(run, selections_by_result)
     repeatability = repeatability_evidence(rows)
+    pairwise = pairwise_evidence(run)
     selections, partial_result_ids = selected_evidence(rows)
     context.update(
         run=run,
         rows=rows,
         repeatability=repeatability,
+        pairwise=pairwise,
         pair_count=len(selections),
         partial_result_ids=partial_result_ids,
+        selections=selections,
     )
     if partial_result_ids:
         context["error"] = (
@@ -189,6 +201,26 @@ def calibration():
             cohort=cohort,
             report=build_calibration_report(cohort.pairs),
         )
+        if request.args.get("gate") == "1":
+            try:
+                policy = CalibrationReadinessPolicy(
+                    minimum_results=int(request.args.get("minimum_results", "10")),
+                    minimum_exact_agreement=float(
+                        request.args.get("minimum_exact_agreement", "0.8")
+                    ),
+                    minimum_kappa_lower_bound=float(
+                        request.args.get("minimum_kappa_lower_bound", "0.4")
+                    ),
+                )
+            except ValueError as exc:
+                context["error"] = f"Invalid readiness policy: {exc}"
+                return render_template("calibration.html", **context), 400
+            context.update(
+                readiness_policy=policy,
+                readiness=assess_calibration_readiness(
+                    context["report"], dataset_split=run.dataset_split, policy=policy
+                ),
+            )
     except CalibrationError as exc:
         context["error"] = str(exc)
         return render_template("calibration.html", **context), 400
