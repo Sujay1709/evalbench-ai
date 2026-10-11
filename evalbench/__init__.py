@@ -28,12 +28,16 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     # Import models before migrations or create_all inspect SQLAlchemy metadata.
     from evalbench import models  # noqa: F401
+    from evalbench.api import api_blueprint
+    from evalbench.frontend import frontend_blueprint
     from evalbench.health import health_blueprint
     from evalbench.web import web_blueprint
     from evalbench.workflows.client import init_inngest
 
     app.register_blueprint(health_blueprint)
     app.register_blueprint(web_blueprint)
+    app.register_blueprint(api_blueprint)
+    app.register_blueprint(frontend_blueprint)
     init_inngest(app, settings)
 
     return app

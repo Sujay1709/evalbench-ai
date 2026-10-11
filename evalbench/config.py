@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     database_pool_recycle_seconds: int = Field(default=300, ge=30, le=3600)
     database_connect_timeout_seconds: int = Field(default=10, ge=1, le=60)
     demo_read_only: bool = False
+    frontend_enabled: bool = False
+    frontend_dist: Path = PROJECT_ROOT / "frontend" / "dist"
     log_level: str = "INFO"
     llm_provider: Literal["mock", "openai"] = "mock"
     max_run_cost_usd: float = Field(default=1.0, ge=0)
@@ -90,6 +92,8 @@ class Settings(BaseSettings):
             "SECRET_KEY": self.secret_key,
             "SQLALCHEMY_TRACK_MODIFICATIONS": False,
             "DEMO_READ_ONLY": self.demo_read_only,
+            "FRONTEND_ENABLED": self.frontend_enabled,
+            "FRONTEND_DIST": str(self.frontend_dist),
             "LOG_LEVEL": self.log_level,
             "LLM_PROVIDER": self.llm_provider,
             "MAX_RUN_COST_USD": self.max_run_cost_usd,

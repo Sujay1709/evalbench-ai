@@ -1,0 +1,111 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+ * EvalBench locked visual language (.ulpi/design/DESIGN.md): the same tokens as
+ * evalbench/static/css/main.css, mapped onto shadcn's semantic variables so
+ * components never introduce their own colors. Dark-only by design.
+ */
+:root {
+  color-scheme: dark;
+
+  --eb-bg: #07131c;
+  --eb-surface: #0d1d29;
+  --eb-surface-strong: #132b3a;
+  --eb-surface-sunken: #061018;
+  --eb-line: #294554;
+  --eb-text: #f1f7f7;
+  --eb-muted: #acc0c6;
+  --eb-accent: #39b8a7;
+  --eb-accent-soft: #b5ebe4;
+  --eb-accent-ink: #06211e;
+  --eb-success: #61d49b;
+  --eb-warning: #f0c56a;
+  --eb-danger: #ef858d;
+  --eb-danger-surface: #351d27;
+  --eb-focus: #b5ebe4;
+
+  --background: var(--eb-bg);
+  --foreground: var(--eb-text);
+  --card: var(--eb-surface);
+  --card-foreground: var(--eb-text);
+  --popover: var(--eb-surface-strong);
+  --popover-foreground: var(--eb-text);
+  --primary: var(--eb-accent);
+  --primary-foreground: var(--eb-accent-ink);
+  --secondary: var(--eb-surface-strong);
+  --secondary-foreground: var(--eb-text);
+  --muted: var(--eb-surface-sunken);
+  --muted-foreground: var(--eb-muted);
+  --accent: var(--eb-surface-strong);
+  --accent-foreground: var(--eb-accent-soft);
+  --destructive: var(--eb-danger);
+  --border: var(--eb-line);
+  --input: var(--eb-line);
+  --ring: var(--eb-focus);
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --font-heading: var(--font-sans);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--eb-success);
+  --color-warning: var(--eb-warning);
+  --color-danger-surface: var(--eb-danger-surface);
+  --color-accent-soft: var(--eb-accent-soft);
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply min-h-screen bg-background font-sans text-foreground antialiased;
+  }
+
+  a {
+    color: var(--eb-accent-soft);
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--eb-focus);
+    outline-offset: 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
