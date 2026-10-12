@@ -362,9 +362,10 @@ See [the secure Supabase setup and migration-test guide](docs/supabase-database.
 for certificate configuration, migration/runtime role separation, Data API
 protection, local PostgreSQL testing, and the required hosted smoke check.
 
-The approved [React/shadcn migration sequence](docs/frontend-migration.md) is a
-separate frontend PR before Phase 5's annotation UX; the current Jinja frontend
-has not been replaced or initialized with shadcn.
+The approved [React/shadcn migration](docs/frontend-migration.md) lives in
+`frontend/` and is served at `/app/` only when `FRONTEND_ENABLED=true`. Jinja
+remains the default UI until comparison, calibration, and leaderboard pages
+reach documented parity. shadcn was initialized only inside `frontend/`.
 
 ### Health checks
 

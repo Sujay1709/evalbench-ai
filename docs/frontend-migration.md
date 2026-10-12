@@ -1,8 +1,15 @@
 # React/shadcn frontend migration sequence
 
-Approved direction: adopt React/Vite with shadcn components in a **separate frontend
-PR**, retaining Flask as the backend. This document is a migration plan, not an
-implemented frontend or a reason to run `init` in the current Jinja project root.
+Approved direction: adopt React/Vite with shadcn components in `frontend/`,
+retaining Flask as the backend. Do not run `npx shadcn@latest init` at the
+Flask project root.
+
+## Current implementation
+
+Slice 1 is implemented: a read-only `/api/v1` schema, a Vite/React app in
+`frontend/`, and opt-in Flask serving at `/app/` behind `FRONTEND_ENABLED`.
+Jinja remains the default UI. Comparison, calibration, and leaderboard views
+are placeholders until slice 2.
 
 ## Sequence
 
