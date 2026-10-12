@@ -7,7 +7,7 @@
     <title>{% block title %}EvalBench{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
   </head>
-  <body>
+  <body class="stage">
     <a class="skip-link" href="#main-content">Skip to content</a>
     <header class="site-header">
       <a class="brand" href="{{ url_for('web.index') }}" aria-label="EvalBench home">
@@ -23,5 +23,6 @@
       Reproducible evaluation. Measurable decisions. No API key required.
     </footer>
     {% block scripts %}{% endblock %}
+    <script src="{{ url_for('static', filename='js/spatial-stage.js') }}" defer></script>
   </body>
 </html>
