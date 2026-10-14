@@ -638,7 +638,7 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
   leaderboard, drill-down, and read-only browser acceptance recorded in
   [docs/phase-4-acceptance.md](docs/phase-4-acceptance.md)
 - [x] **Infrastructure interlude:** secure Supabase/PostgreSQL integration merged in PR #21; hosted smoke verification remains operator-run
-- [x] **Phase 5 implementation:** [versioned rubric and opt-in judge execution](docs/judge-contracts.md), [blind human labels](docs/human-labels.md), optional local Kev evidence, split-safe agreement reporting, repeated-score summaries, pairwise order-swap display, adversarial automotive fixtures, and a configurable holdout readiness check. Real-world reliability claims still require a representative independently labeled holdout cohort; browser-side annotation remains deferred until authentication/CSRF support exists.
+- [x] **Phase 5 implementation:** [versioned rubric and opt-in judge execution](docs/judge-contracts.md), [blind human labels](docs/human-labels.md), optional local Kev evidence, split-safe agreement reporting, repeated-score summaries, pairwise order-swap display, adversarial automotive fixtures, and a configurable holdout readiness check. Browser-side annotation remains deferred until authentication/CSRF support exists. The reliability claim is still open. An October 13, 2026 local SQLite session stored three assisted holdout labels (both SQuAD v2 sample holdout rows and one of two HotpotQA sample holdout rows) with no paired judge attempts. The workbench default minimum is 10 labeled results.
 - [ ] **Phase 6:** CI regression policy with statistically justified thresholds
 - [ ] **Phase 7:** verified Docker/Render deployment and safe public demo mode
 
@@ -650,7 +650,7 @@ See [`plan.md`](plan.md) for completion criteria and [`Deploy.md`](Deploy.md) fo
 - The repository contains five automotive fixtures and eight external sample fixtures, which are appropriate for infrastructure verification but too small for model selection.
 - Exact match, token F1, answerability, and JSON Schema are implemented; retrieval and citation metrics remain planned.
 - Docker and Render execution have not yet been smoke-tested.
-- Comparison, cost-reporting, and calibration-report mechanics are verified offline; no live-model performance benchmark or generalizable human-calibrated judge claim is made yet.
+- Comparison, cost-reporting, and calibration-report mechanics are verified offline; no live-model performance benchmark or generalizable human-calibrated judge claim is made yet. The October 13, 2026 labels are a local workflow check on three fixture rows, stored only in the operator's SQLite database.
 
 These are roadmap boundaries, not hidden caveats. Each one maps to a testable milestone above.
 
