@@ -1,6 +1,6 @@
 # EvalBench Project Plan
 
-> **Status: approved on August 15, 2026. Phases 0-4 are complete, including Phase 4 browser acceptance on September 21, 2026. The approved Supabase infrastructure interlude precedes Phase 5.** Each phase must satisfy its tests and completion criteria before the next phase begins.
+> **Status: approved on August 15, 2026. Phases 0-4 are complete, including Phase 4 browser acceptance on September 21, 2026. The Supabase infrastructure interlude is complete. Phase 5's offline implementation is complete; its representative-holdout reliability claim remains open, so Phase 6 has not started.** Each phase must satisfy its tests and completion criteria before the next phase begins.
 
 ## 1. Concept
 
@@ -432,9 +432,22 @@ available through the interactive CLI; browser-side writes remain intentionally
 deferred until authentication and CSRF protection are implemented.
 
 **Implementation status:** The planned offline-tested Phase 5 components are
-complete. Calibration results still depend on collecting genuine independent
-human labels and running the opted-in judge on a meaningful holdout sample;
-fixtures and tests must not be presented as empirical model-quality results.
+complete. A real reliability claim still requires genuine independent human
+labels and an opted-in judge on a representative holdout. Fixtures and tests
+must not be presented as empirical model-quality results.
+
+On October 13, 2026 a local SQLite session stored three holdout
+`human_label_sets` rows for annotator `reviewer_01`: both SQuAD v2 sample
+holdout examples and one of the two HotpotQA sample holdout examples
+(`hotpot-5ae7ef625542994a481bbe40`). The scores and reasons were drafted in
+the coding session and then entered at the CLI, so the session checks the
+blind-label workflow. It is an assisted fixture pass: one annotator, no
+opted-in judge attempts, and three results against the workbench default
+minimum of 10. The other HotpotQA holdout example,
+`hotpot-5a771ead55429966f1a36c7c`, is unlabeled. Automotive holdout rows stay
+ineligible for this grounded-QA command because they lack a context or a
+reference/unanswerable label. These rows live in the local database and are
+not a calibration result.
 
 **Build:**
 
