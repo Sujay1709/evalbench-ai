@@ -19,10 +19,25 @@
   </section>
 
   <section class="metrics" aria-label="Project capabilities">
-    <article class="slab"><strong>2</strong><span>deterministic scorers</span></article>
+    <article class="slab"><strong>4</strong><span>deterministic scorers</span></article>
     <article class="slab"><strong>100%</strong><span>offline reproducibility</span></article>
-    <article class="slab"><strong>$0</strong><span>API cost for this phase</span></article>
+    <article class="slab"><strong>$0</strong><span>model spend in this demo</span></article>
   </section>
+
+  {% if featured %}
+    <section class="featured-regression" aria-labelledby="featured-title">
+      <div>
+        <p class="eyebrow">Start here</p>
+        <h2 id="featured-title">Inspect a caught regression</h2>
+        <p>
+          A candidate prompt dropped the question line. Of {{ featured.examples }} automotive
+          examples, {{ featured.newly_failing }} passed in the baseline and fail now, so the CI
+          regression gate exits 1.
+        </p>
+      </div>
+      <a class="primary-button" href="{{ url_for('web.comparison', baseline=featured.baseline.id, candidate=featured.candidate.id, change='regressed') }}">Open the regression report</a>
+    </section>
+  {% endif %}
 
   <section class="runs-section" aria-labelledby="recent-runs-title">
     <div class="section-heading">

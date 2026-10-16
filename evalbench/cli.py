@@ -10,6 +10,7 @@ from alembic.script import ScriptDirectory
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
+from sqlalchemy.exc import SQLAlchemyError
 
 from evalbench import create_app
 from evalbench.config import Settings
@@ -21,6 +22,7 @@ from evalbench.datasets import (
     import_huggingface_dataset,
     load_jsonl,
 )
+from evalbench.demo import DEMO_PROVIDER, seed_demo
 from evalbench.extensions import db
 from evalbench.gates import (
     GateConfigError,
@@ -331,6 +333,32 @@ def record_baseline(
             f"{passed}/{len(item.snapshot.examples)} passing  {shown_path}"
         )
     console.print("Review the baseline diff before committing it; it redefines expected behavior.")
+
+
+@cli.command("demo-seed")
+def demo_seed() -> None:
+    """Build the read-only demo runs idempotently with the offline mock provider."""
+    settings = Settings()
+    if settings.llm_provider != DEMO_PROVIDER:
+        error_console.print(
+            f"[red]Demo seed refused:[/red] set LLM_PROVIDER={DEMO_PROVIDER}; "
+            "the public demo must never call a paid model."
+        )
+        raise typer.Exit(code=1)
+    app = create_app()
+    with app.app_context():
+        try:
+            prepare_database()
+            seeded = seed_demo(build_provider(settings))
+        except (ValueError, OSError, ProviderError, SQLAlchemyError) as exc:
+            error_console.print(f"[red]Demo seed failed:[/red] {exc}")
+            raise typer.Exit(code=1) from exc
+        for item in seeded:
+            console.print(
+                f"{'created' if item.created else 'exists':>8}  {item.key}  "
+                f"{item.run.passed_examples}/{item.run.total_examples} passing  "
+                f"run {item.run.id[:8]}"
+            )
 
 
 @cli.command("import-hf")

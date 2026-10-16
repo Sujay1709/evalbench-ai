@@ -383,6 +383,41 @@ flask --app evalbench:create_app run --debug
 
 Open [http://localhost:5000](http://localhost:5000) to inspect the run dashboard.
 
+### Reproduce the public demo and smoke suite
+
+The public demo is the same Flask app in read-only mode, seeded offline with the
+mock provider. These commands reproduce it from a fresh clone with no API key and
+no hosted database:
+
+```bash
+source .venv/bin/activate
+python -m evalbench.cli gate --tier smoke
+export DATABASE_URL=sqlite:///demo.db LLM_PROVIDER=mock  # instance/demo.db
+python -m evalbench.cli demo-seed
+APP_ENV=production DEMO_READ_ONLY=true SECRET_KEY="$(openssl rand -hex 32)" \
+  gunicorn --bind 127.0.0.1:8000 'evalbench:create_app()'
+```
+
+In a second terminal:
+
+```bash
+scripts/smoke_demo.sh http://127.0.0.1:8000
+```
+
+- `gate --tier smoke` is the CI smoke suite: it re-runs the smoke benchmarks and
+  compares them with the committed baselines, exiting `0` when nothing regressed.
+- `demo-seed` stores the standard-tier baseline runs plus a known-bad candidate
+  prompt that drops the question line. Re-running it creates nothing new, and it
+  refuses any provider other than `mock`.
+- The home page's **Inspect a caught regression** link opens the comparison
+  where that candidate turns three passing automotive answers into failures.
+- In read-only mode every `POST`, `PUT`, `PATCH`, and `DELETE` returns `403`.
+
+The [`Dockerfile`](Dockerfile) runs the same seed before Gunicorn, and the
+`Container smoke test` workflow builds it and runs `scripts/smoke_demo.sh`
+against the container. [`render.yaml`](render.yaml) describes the Render
+service; see [`Deploy.md`](Deploy.md) for the deployment procedure.
+
 ### Persistent PostgreSQL / Supabase
 
 Supabase can persist evaluation history and cached responses outside an ephemeral
@@ -408,7 +443,8 @@ curl --fail http://localhost:5000/health/ready
 ```
 
 - `/health` confirms that the web process is alive.
-- `/health/ready` also verifies that the database is reachable.
+- `/health/ready` also verifies that the database is reachable and, in read-only
+  demo mode, that the seeded demo runs exist; otherwise it returns `503`.
 
 ### Reproducibility and cache check
 
@@ -642,11 +678,11 @@ The implementation order and commit boundaries for these experiments are recorde
 |---|---|---|
 | Local CLI | **Verified** | Migrations, evaluation, persistence, and cache replay pass locally |
 | Local Flask dashboard | **Verified** | Run summaries, per-example evidence, and health routes render locally |
-| Docker | **Prepared, not yet verified** | Container definition exists; image build and runtime smoke test remain |
-| Render | **Not deployed** | Deployment procedure and inactivity mitigation are documented in `Deploy.md` |
+| Docker | **CI smoke-tested** | The `Container smoke test` workflow builds the image, starts it on a non-default `PORT`, and runs `scripts/smoke_demo.sh` |
+| Render | **Not deployed** | `render.yaml` is ready; the service has not been created. Procedure and inactivity mitigation are in `Deploy.md` |
 | External uptime monitor | **Not configured** | `/health` is ready for a permitted monitoring service |
 | Inngest background jobs | **Locally verified** | The Dev Server registers the workflow, accepts queued events, displays traces, and reruns checkpointed work without duplicate application records |
-| Public portfolio demo | **Planned** | Must use a read-only seeded demo or authenticated, rate-limited live runs |
+| Public portfolio demo | **Implemented, not yet hosted** | Read-only seeded mode with a featured regression; reproducible locally with the commands above |
 
 The deploy status is intentionally explicit: a Dockerfile or deployment document is not the same as a verified public deployment.
 
@@ -673,7 +709,7 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
 - [x] **Infrastructure interlude:** secure Supabase/PostgreSQL integration merged in PR #21; hosted smoke verification remains operator-run
 - [x] **Phase 5 implementation:** [versioned rubric and opt-in judge execution](docs/judge-contracts.md), [blind human labels](docs/human-labels.md), optional local Kev evidence, split-safe agreement reporting, repeated-score summaries, pairwise order-swap display, adversarial automotive fixtures, and a configurable holdout readiness check. Browser-side annotation remains deferred until authentication/CSRF support exists. The reliability claim is still open. An October 13, 2026 local SQLite session stored three assisted holdout labels (both SQuAD v2 sample holdout rows and one of two HotpotQA sample holdout rows) with no paired judge attempts. The workbench default minimum is 10 labeled results.
 - [ ] **Phase 6:** [offline regression gate](docs/regression-gate.md) implemented: baseline comparison, versioned policy, smoke/standard/full tiers, JSON/JUnit reports, a GitHub Actions workflow, and a known-bad prompt that exits 1 locally. Acceptance still needs a real GitHub Actions run showing the annotation and uploaded report.
-- [ ] **Phase 7:** verified Docker/Render deployment and safe public demo mode
+- [ ] **Phase 7:** read-only seeded demo, demo-aware readiness, security headers, a featured-regression entry point, a non-root Docker image, `render.yaml`, and a container smoke test in CI are implemented. Completion still needs a live Render deploy that passes `scripts/smoke_demo.sh`.
 
 See [`plan.md`](plan.md) for completion criteria and [`Deploy.md`](Deploy.md) for the deployment design.
 

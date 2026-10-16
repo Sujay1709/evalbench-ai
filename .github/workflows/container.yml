@@ -1,0 +1,66 @@
+name: Container smoke test
+
+on:
+  pull_request:
+    paths:
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'render.yaml'
+      - 'requirements.txt'
+      - 'evalbench/**'
+      - 'datasets/**'
+      - 'prompts/**'
+      - 'regression/**'
+      - 'scripts/smoke_demo.sh'
+      - '.github/workflows/container.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'render.yaml'
+      - 'requirements.txt'
+      - 'evalbench/**'
+      - 'datasets/**'
+      - 'prompts/**'
+      - 'regression/**'
+      - 'scripts/smoke_demo.sh'
+      - '.github/workflows/container.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the production image
+        run: docker build --tag evalbench:ci .
+
+      # Render injects PORT; use a non-default value to prove the image honors it.
+      - name: Start the read-only demo
+        run: |
+          docker run --detach --name evalbench --publish 8000:10000 \
+            --env PORT=10000 --env SECRET_KEY="$(openssl rand -hex 32)" evalbench:ci
+          for attempt in $(seq 1 45); do
+            if curl --silent --fail http://127.0.0.1:8000/health/ready; then
+              echo
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error title=Container smoke test::/health/ready never returned 200"
+          exit 1
+
+      - name: Confirm the container runs as a non-root user
+        run: test "$(docker exec evalbench id -u)" != "0"
+
+      - name: Smoke-test the public demo
+        run: scripts/smoke_demo.sh http://127.0.0.1:8000
+
+      - name: Container logs
+        if: always()
+        run: docker logs evalbench
