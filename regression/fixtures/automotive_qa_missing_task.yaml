@@ -1,0 +1,10 @@
+id: automotive-qa
+version: v1-known-bad
+description: >-
+  Intentionally broken copy of automotive-qa v1 that drops the task line, as a careless
+  template edit might. It exists only to prove that the regression gate fails; never use
+  it as a real prompt.
+template: |
+  You are an automotive education assistant. Use only the supplied evaluation fixture.
+
+  Response requirements: {response_format}

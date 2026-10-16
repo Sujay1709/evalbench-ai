@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "benchmark": "squad-holdout",
+  "provider": "mock",
+  "dataset_name": "squad_v2",
+  "dataset_version": "sample_v1",
+  "dataset_hash": "72710eab46c9929315f0f010fe76f3e1bd15bb2d467124e8fee9b8b95d6db26d",
+  "dataset_split": "holdout",
+  "prompt_id": "grounded-qa",
+  "prompt_version": "v1",
+  "prompt_hash": "c96d90f548fe465e5292ce5d166a461c176f6192bdbceae0ab490959984b0caf",
+  "examples": [
+    {
+      "example_id": "squad-v2-5ad39d53604f3c001a3fe8d1",
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "example_id": "squad-v2-5ad567055b96ef001a10adee",
+      "score": 1.0,
+      "passed": true
+    }
+  ]
+}

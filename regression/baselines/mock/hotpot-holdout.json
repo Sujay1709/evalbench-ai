@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "benchmark": "hotpot-holdout",
+  "provider": "mock",
+  "dataset_name": "hotpot_qa",
+  "dataset_version": "sample_v1",
+  "dataset_hash": "8e033ff15acfb961f851c1ba4db9ddcc535c6257e9323608f5db71f31e366650",
+  "dataset_split": "holdout",
+  "prompt_id": "grounded-qa",
+  "prompt_version": "v1",
+  "prompt_hash": "c96d90f548fe465e5292ce5d166a461c176f6192bdbceae0ab490959984b0caf",
+  "examples": [
+    {
+      "example_id": "hotpot-5a771ead55429966f1a36c7c",
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "example_id": "hotpot-5ae7ef625542994a481bbe40",
+      "score": 1.0,
+      "passed": true
+    }
+  ]
+}

@@ -11,6 +11,7 @@ Build EvalBench as a portfolio-quality, reproducible LLM evaluation and regressi
 - Phase 4 implementation is merged in PR #20, and browser acceptance passed on September 21, 2026; see `docs/phase-4-acceptance.md` before Phase 5 model-judge work begins.
 - The secure Supabase/PostgreSQL infrastructure interlude merged in PR #21; SQLite remains the offline default. No hosted provisioning or data transfer is implicit.
 - Phase 5 has advisory judge contracts, opt-in single-result execution, blind local human labels, and an optional loopback-only Kev decision adapter; agreement calibration and any model-based release decision remain unimplemented.
+- Phase 6's offline regression gate is implemented (`regression/gate.yaml`, `evalbench/gates/`, `.github/workflows/regression-gate.yml`); acceptance still needs a real GitHub Actions run. Baselines are mock-only; re-record them only for intended behavior changes and review the diff.
 - React/Vite and shadcn are approved as a separate frontend migration after Phase 5 rubric/output contracts, before annotation UX. Preserve Jinja until tested feature parity; do not initialize shadcn at the Flask root.
 - Keep all automated tests offline. Do not add LlamaIndex or LangSmith tracing until their planned slice.
 
@@ -33,6 +34,7 @@ ruff check .
 flask --app evalbench:create_app run --debug
 python -m evalbench.cli run --split development
 INNGEST_DEV=1 python -m evalbench.cli queue --split development
+python -m evalbench.cli gate --tier standard
 ```
 
 ## Quality expectations
@@ -47,31 +49,3 @@ INNGEST_DEV=1 python -m evalbench.cli queue --split development
 ## Definition of done
 
 A phase is complete only when its automated tests pass, its documented local commands work, and its completion criteria in `plan.md` are demonstrably satisfied.
-
-<!-- gortex:communities:start -->
-## Community Skills
-
-| Area | Description | Explore |
-|------|-------------|---------|
-| Tests 7 Dirs | 174 symbols | `analyze(operation:"communities", id:"community-8")` |
-| Tests 4 Dirs | 72 symbols | `analyze(operation:"communities", id:"community-3")` |
-| 3 Dirs Execute Kev Decision | 69 symbols | `analyze(operation:"communities", id:"community-121")` |
-| Tests 5 Dirs | 69 symbols | `analyze(operation:"communities", id:"community-108")` |
-| 2 Dirs Typer | 65 symbols | `analyze(operation:"communities", id:"community-13")` |
-| Judges 6 Dirs | 55 symbols | `analyze(operation:"communities", id:"community-85")` |
-| Judges 4 Dirs | 53 symbols | `analyze(operation:"communities", id:"community-2")` |
-| Comparisons 2 Dirs | 51 symbols | `analyze(operation:"communities", id:"community-12")` |
-| Workflows 3 Dirs | 46 symbols | `analyze(operation:"communities", id:"community-6")` |
-| Tests 2 Dirs | 42 symbols | `analyze(operation:"communities", id:"community-116")` |
-| 2 Dirs Generate | 41 symbols | `analyze(operation:"communities", id:"community-114")` |
-| Tests Generate | 35 symbols | `analyze(operation:"communities", id:"community-110")` |
-| 3 Dirs Score Response | 32 symbols | `analyze(operation:"communities", id:"community-92")` |
-| Evalbench Extensions Db | 31 symbols | `analyze(operation:"communities", id:"community-37")` |
-| 2 Dirs Uuid4 | 24 symbols | `analyze(operation:"communities", id:"community-115")` |
-| Runners 5 Dirs | 23 symbols | `analyze(operation:"communities", id:"community-5")` |
-| Judges 3 Dirs | 22 symbols | `analyze(operation:"communities", id:"community-119")` |
-| Sqlalchemy | 21 symbols | `analyze(operation:"communities", id:"community-93")` |
-| Versions 2 Dirs | 20 symbols | `analyze(operation:"communities", id:"community-15")` |
-| 1 Dirs Test Strict Response Schema And | 20 symbols | `analyze(operation:"communities", id:"community-117")` |
-
-<!-- gortex:communities:end -->

@@ -1,3 +1,4 @@
+import os
 from datetime import date
 from pathlib import Path
 from typing import Annotated
@@ -21,6 +22,17 @@ from evalbench.datasets import (
     load_jsonl,
 )
 from evalbench.extensions import db
+from evalbench.gates import (
+    GateConfigError,
+    GateReport,
+    github_annotations,
+    json_report,
+    junit_report,
+    load_gate_config,
+    record_baselines,
+    run_gate,
+    step_summary,
+)
 from evalbench.judges.execution import (
     JudgePreflightError,
     execute_judgment,
@@ -48,7 +60,7 @@ from evalbench.judges.pairwise_execution import (
 )
 from evalbench.judges.rubrics import load_rubric
 from evalbench.prompts import load_prompt
-from evalbench.providers import build_provider
+from evalbench.providers import ProviderError, build_provider
 from evalbench.runners import EvaluationRunner
 from evalbench.workflows.events import EvaluationRunRequestedData
 
@@ -56,6 +68,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DATASET = PROJECT_ROOT / "datasets" / "automotive_qa" / "v1.jsonl"
 DEFAULT_PROMPT = PROJECT_ROOT / "prompts" / "automotive_qa" / "v1.yaml"
 DEFAULT_RUBRIC = PROJECT_ROOT / "rubrics" / "grounded_qa" / "v1.yaml"
+DEFAULT_GATE_CONFIG = PROJECT_ROOT / "regression" / "gate.yaml"
 
 cli = typer.Typer(help="Run reproducible EvalBench experiments.")
 console = Console()
@@ -184,6 +197,140 @@ def queue_evaluation(
     console.print(f"Correlation ID: {persisted_correlation_id}")
     console.print(f"Inngest event ID: {', '.join(event_ids)}")
     console.print("Trace: http://localhost:8288")
+
+
+def _parse_candidate_prompts(values: list[str]) -> dict[str, Path]:
+    prompts: dict[str, Path] = {}
+    for value in values:
+        name, separator, path = value.partition("=")
+        if not separator or not name or not path:
+            raise typer.BadParameter("use BENCHMARK=PATH", param_hint="--candidate-prompt")
+        if name in prompts:
+            raise typer.BadParameter(f"'{name}' is given twice", param_hint="--candidate-prompt")
+        prompts[name] = Path(path)
+    return prompts
+
+
+def _load_gate_tier(config_path: Path, tier: str):
+    try:
+        config = load_gate_config(config_path)
+        config.tier_benchmarks(tier)
+    except GateConfigError as exc:
+        error_console.print(f"[red]Gate configuration error:[/red] {exc}")
+        raise typer.Exit(code=2) from exc
+    return config
+
+
+def _print_gate_report(report: GateReport) -> None:
+    table = Table(title=f"EvalBench gate: {report.tier} tier ({report.provider})")
+    table.add_column("Benchmark", no_wrap=True)
+    table.add_column("Status", no_wrap=True)
+    table.add_column("Mean delta", justify="right", no_wrap=True)
+    table.add_column("Newly failing", justify="right", no_wrap=True)
+    table.add_column("Run", no_wrap=True)
+    for outcome in report.outcomes:
+        comparison = outcome.comparison
+        table.add_row(
+            outcome.benchmark,
+            outcome.status.upper(),
+            "n/a" if comparison is None else f"{comparison.mean_score_delta:+.3f}",
+            "n/a" if comparison is None else str(comparison.newly_failing),
+            outcome.candidate_run_id[:8] if outcome.candidate_run_id else "n/a",
+        )
+    console.print(table)
+    for outcome in report.outcomes:
+        if outcome.error is not None:
+            error_console.print(f"[red]{outcome.benchmark}:[/red] {outcome.error}")
+            continue
+        for check in outcome.evaluation.checks:
+            if check.status == "failed":
+                error_console.print(f"[red]{outcome.benchmark} {check.name}:[/red] {check.message}")
+    console.print(f"[bold]Gate {report.status.upper()}[/bold] (exit {report.exit_code})")
+
+
+@cli.command("gate")
+def gate(
+    tier: Annotated[str, typer.Option("--tier", help="Suite tier from the gate config.")] = "smoke",
+    config_path: Annotated[Path, typer.Option("--config")] = DEFAULT_GATE_CONFIG,
+    candidate_prompts: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--candidate-prompt",
+            help="BENCHMARK=PATH: gate this prompt in place of the configured one. Repeatable.",
+        ),
+    ] = None,
+    json_path: Annotated[Path | None, typer.Option("--json-report")] = None,
+    junit_path: Annotated[Path | None, typer.Option("--junit-report")] = None,
+    annotations: Annotated[
+        bool | None,
+        typer.Option(
+            "--annotations/--no-annotations",
+            help="Emit GitHub Actions annotations and a step summary (default: in Actions only).",
+        ),
+    ] = None,
+) -> None:
+    """Gate a suite tier against committed baselines: exit 1 on regression, 2 if it cannot run."""
+    overrides = _parse_candidate_prompts(candidate_prompts or [])
+    config = _load_gate_tier(config_path, tier)
+    provider = build_provider(Settings())
+    app = create_app()
+    with app.app_context():
+        try:
+            prepare_database()
+        except typer.Exit as exc:
+            raise typer.Exit(code=2) from exc
+        try:
+            report = run_gate(config, tier=tier, provider=provider, candidate_prompts=overrides)
+        except GateConfigError as exc:
+            error_console.print(f"[red]Gate configuration error:[/red] {exc}")
+            raise typer.Exit(code=2) from exc
+
+    _print_gate_report(report)
+    for path, render in ((json_path, json_report), (junit_path, junit_report)):
+        if path is not None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(render(report))
+            console.print(f"Report: {path}")
+    if annotations is None:
+        annotations = os.environ.get("GITHUB_ACTIONS") == "true"
+    if annotations:
+        for line in github_annotations(report):
+            typer.echo(line)
+        summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+        if summary_path:
+            with open(summary_path, "a", encoding="utf-8") as summary:
+                summary.write(step_summary(report))
+    raise typer.Exit(code=report.exit_code)
+
+
+@cli.command("record-baseline")
+def record_baseline(
+    tier: Annotated[str, typer.Option("--tier", help="Suite tier to record.")] = "full",
+    config_path: Annotated[Path, typer.Option("--config")] = DEFAULT_GATE_CONFIG,
+) -> None:
+    """Record the configured prompts' current scores as the gate's committed baselines."""
+    config = _load_gate_tier(config_path, tier)
+    provider = build_provider(Settings())
+    app = create_app()
+    with app.app_context():
+        prepare_database()
+        try:
+            recorded = record_baselines(config, tier=tier, provider=provider)
+        except (ValueError, OSError, ProviderError) as exc:
+            error_console.print(f"[red]Baselines not recorded:[/red] {exc}")
+            raise typer.Exit(code=1) from exc
+
+    for item in recorded:
+        passed = sum(example.passed for example in item.snapshot.examples)
+        try:
+            shown_path = item.path.relative_to(Path.cwd())
+        except ValueError:
+            shown_path = item.path
+        console.print(
+            f"{item.change:>9}  {item.benchmark}  "
+            f"{passed}/{len(item.snapshot.examples)} passing  {shown_path}"
+        )
+    console.print("Review the baseline diff before committing it; it redefines expected behavior.")
 
 
 @cli.command("import-hf")

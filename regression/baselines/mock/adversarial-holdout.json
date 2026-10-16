@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "benchmark": "adversarial-holdout",
+  "provider": "mock",
+  "dataset_name": "automotive_qa",
+  "dataset_version": "adversarial_v1",
+  "dataset_hash": "6999b3ada403a36e941043931ae69e3e893b05c5a44402e6a8625c0b6ce624e9",
+  "dataset_split": "holdout",
+  "prompt_id": "grounded-qa",
+  "prompt_version": "v1",
+  "prompt_hash": "c96d90f548fe465e5292ce5d166a461c176f6192bdbceae0ab490959984b0caf",
+  "examples": [
+    {
+      "example_id": "adv-003",
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "example_id": "adv-004",
+      "score": 1.0,
+      "passed": true
+    }
+  ]
+}

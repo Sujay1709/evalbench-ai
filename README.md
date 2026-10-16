@@ -41,6 +41,7 @@ EvalBench is designed around those questions. It emphasizes measurable behavior,
 | Web observability | Run dashboard, run-detail view, liveness, and database readiness routes |
 | Database compatibility | SQLite offline default and Supabase/PostgreSQL via psycopg, verified hosted TLS, bounded pools, and migration compatibility tests |
 | Local quality gate | Offline automated tests and Ruff static analysis; an opt-in local PostgreSQL service exercises migration and persistence compatibility |
+| Regression gate | `evalbench gate` compares candidate runs with committed baselines under a versioned policy, writes JSON/JUnit reports, and exits 0/1/2; a known-bad prompt fixture fails it offline |
 
 ## Architecture pipeline
 
@@ -62,10 +63,10 @@ flowchart LR
     E --> DB[("SQLite or PostgreSQL / SQLAlchemy")]
     DB --> UI["Flask dashboard and run evidence"]
     DB --> CAL["Read-only calibration workbench"]
-    DB -. "Future" .-> CI["Regression gate in CI"]
+    DB --> CI["Regression gate: committed baselines, JSON/JUnit, CI annotations"]
 ```
 
-The Flask routes only handle HTTP concerns. Dataset loading, prompt rendering, providers, scoring, caching, and run orchestration live in framework-independent modules so they can also be used by the CLI, background jobs, and future CI workflows.
+The Flask routes only handle HTTP concerns. Dataset loading, prompt rendering, providers, scoring, caching, and run orchestration live in framework-independent modules so they can also be used by the CLI, background jobs, and the CI regression gate.
 
 ## Evaluation workflow
 
@@ -200,8 +201,8 @@ OPENAI_OUTPUT_USD_PER_MILLION=<chosen-output-price>
 ```
 
 Historical results remain append-only; their usage stays null and renders unknown.
-Pricing affects future provider responses and is not a billing limit. Phase 6 adds
-enforceable gates.
+Pricing affects future provider responses and is not a billing limit. The
+regression gate can enforce optional P95 latency and estimated-cost budgets.
 
 ### Programmatic uncertainty
 
@@ -229,7 +230,8 @@ produces a zero-width interval with a warning. Our small fixtures validate the
 implementation; they do not support reliable model-selection claims. The method
 assumes independent, representative examples and does not capture repeated-call
 model randomness or account for dependent question families. An interval crossing
-zero does not establish equivalence. Statistical CI release gates remain Phase 6.
+zero does not establish equivalence. The regression gate below uses this interval
+only together with a practical tolerance and a hard newly-failing check.
 
 The implementation follows the [paired percentile bootstrap procedure](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.bootstrap.html)
 and uses [NumPy linear quantiles](https://numpy.org/doc/stable/reference/generated/numpy.quantile.html).
@@ -266,6 +268,35 @@ order; absent groups are omitted. Singleton groups are valid descriptive summari
 These breakdowns are exploratory, not significance tests or release gates; many
 small groups can make chance differences look important. Always inspect sample size
 and the underlying examples before drawing conclusions.
+
+### Gate a change against baselines (Phase 6)
+
+```bash
+python -m evalbench.cli gate --tier standard \
+  --json-report reports/gate.json --junit-report reports/gate.xml
+```
+
+The gate runs each benchmark in the tier with the configured provider and
+compares it with a committed baseline in `regression/baselines/<provider>/`.
+Benchmarks, tiers (`smoke`, `standard`, `full`), and the policy live in
+[`regression/gate.yaml`](regression/gate.yaml). A benchmark fails when any
+example that passed in the baseline now fails, or when its mean score drops by
+more than the tolerance and the paired bootstrap interval excludes zero. Exit
+code 1 means a regression, and 2 means the gate could not be evaluated, such as
+a stale baseline. In GitHub Actions it also prints `::error` annotations and a
+step summary.
+
+To try a prompt change, pass `--candidate-prompt BENCHMARK=PATH`. The committed
+known-bad fixture fails the gate:
+
+```bash
+python -m evalbench.cli gate --tier standard --candidate-prompt \
+  automotive-development=regression/fixtures/automotive_qa_missing_task.yaml
+```
+
+After an intended behavior change, `python -m evalbench.cli record-baseline`
+rewrites the baselines; review that diff like code. Details, report formats, and
+limits are in [docs/regression-gate.md](docs/regression-gate.md).
 
 ### Evaluation execution
 
@@ -315,8 +346,10 @@ sequenceDiagram
 evalbench/
 ├── datasets/                 # Automotive, SQuAD v2, and HotpotQA JSONL fixtures
 ├── prompts/                  # Versioned YAML prompt definitions
+├── regression/               # Gate policy, tiers, committed baselines, known-bad fixture
 ├── evalbench/
 │   ├── datasets/             # Validation, loading, and hashing
+│   ├── gates/                # Baseline comparison policy and gate reports
 │   ├── prompts/              # Prompt registry and rendering
 │   ├── providers/            # Mock and opt-in OpenAI Responses adapters
 │   ├── scorers/              # Exact match, token F1, answerability, and schema
@@ -638,8 +671,8 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
   leaderboard, drill-down, and read-only browser acceptance recorded in
   [docs/phase-4-acceptance.md](docs/phase-4-acceptance.md)
 - [x] **Infrastructure interlude:** secure Supabase/PostgreSQL integration merged in PR #21; hosted smoke verification remains operator-run
-- [x] **Phase 5 implementation:** [versioned rubric and opt-in judge execution](docs/judge-contracts.md), [blind human labels](docs/human-labels.md), optional local Kev evidence, split-safe agreement reporting, repeated-score summaries, pairwise order-swap display, adversarial automotive fixtures, and a configurable holdout readiness check. Real-world reliability claims still require a representative independently labeled holdout cohort; browser-side annotation remains deferred until authentication/CSRF support exists.
-- [ ] **Phase 6:** CI regression policy with statistically justified thresholds
+- [x] **Phase 5 implementation:** [versioned rubric and opt-in judge execution](docs/judge-contracts.md), [blind human labels](docs/human-labels.md), optional local Kev evidence, split-safe agreement reporting, repeated-score summaries, pairwise order-swap display, adversarial automotive fixtures, and a configurable holdout readiness check. Browser-side annotation remains deferred until authentication/CSRF support exists. The reliability claim is still open. An October 13, 2026 local SQLite session stored three assisted holdout labels (both SQuAD v2 sample holdout rows and one of two HotpotQA sample holdout rows) with no paired judge attempts. The workbench default minimum is 10 labeled results.
+- [ ] **Phase 6:** [offline regression gate](docs/regression-gate.md) implemented: baseline comparison, versioned policy, smoke/standard/full tiers, JSON/JUnit reports, a GitHub Actions workflow, and a known-bad prompt that exits 1 locally. Acceptance still needs a real GitHub Actions run showing the annotation and uploaded report.
 - [ ] **Phase 7:** verified Docker/Render deployment and safe public demo mode
 
 See [`plan.md`](plan.md) for completion criteria and [`Deploy.md`](Deploy.md) for the deployment design.
@@ -650,7 +683,8 @@ See [`plan.md`](plan.md) for completion criteria and [`Deploy.md`](Deploy.md) fo
 - The repository contains five automotive fixtures and eight external sample fixtures, which are appropriate for infrastructure verification but too small for model selection.
 - Exact match, token F1, answerability, and JSON Schema are implemented; retrieval and citation metrics remain planned.
 - Docker and Render execution have not yet been smoke-tested.
-- Comparison, cost-reporting, and calibration-report mechanics are verified offline; no live-model performance benchmark or generalizable human-calibrated judge claim is made yet.
+- Regression baselines exist only for the offline mock provider, so the gate catches prompt and pipeline regressions, not live-model drift. With two or three examples per benchmark, the newly-failing check does most of the work; the interval rarely excludes zero at this size.
+- Comparison, cost-reporting, and calibration-report mechanics are verified offline; no live-model performance benchmark or generalizable human-calibrated judge claim is made yet. The October 13, 2026 labels are a local workflow check on three fixture rows, stored only in the operator's SQLite database.
 
 These are roadmap boundaries, not hidden caveats. Each one maps to a testable milestone above.
 
