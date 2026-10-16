@@ -5,6 +5,7 @@ from typer.testing import CliRunner
 
 from evalbench.cli import cli
 from evalbench.datasets import EvaluationSplit, load_jsonl
+from evalbench.demo import seed_demo
 from evalbench.extensions import db
 from evalbench.models import EvaluationRun, ResponseCache
 from evalbench.prompts import load_prompt
@@ -58,6 +59,12 @@ def test_postgres_runner_persists_json_usage_timestamps_and_reuses_cache(postgre
         assert len(db.session.execute(db.select(EvaluationRun)).scalars().all()) == 2
 
     client = postgres_app.test_client()
+    unseeded = client.get("/health/ready")
+    assert unseeded.status_code == 503
+    assert unseeded.get_json()["checks"] == {"database": "ok", "demo_data": "missing"}
+
+    with postgres_app.app_context():
+        seed_demo(MockProvider())
     assert client.get("/health/ready").status_code == 200
     assert client.get("/").status_code == 200
 
