@@ -1,0 +1,72 @@
+# Versioned regression-gate policy. Thresholds are operator policy chosen for
+# these small offline fixtures, not empirically derived constants; see
+# docs/regression-gate.md before changing them.
+version: 1
+root: ..
+baselines: regression/baselines
+
+policy:
+  # Any example that passed in the baseline and fails now is a hard failure.
+  max_newly_failing: 0
+  # A mean-score drop fails only when it exceeds this practical tolerance and the
+  # paired bootstrap interval for the mean delta lies entirely below zero.
+  mean_score_tolerance: 0.02
+  confidence_level: 0.95
+  bootstrap_resamples: 10000
+  bootstrap_seed: 42
+  # Offline mock latency and cost carry no signal; set these for live providers.
+  max_p95_latency_ms: null
+  max_estimated_cost_usd: null
+
+benchmarks:
+  automotive-development:
+    dataset: datasets/automotive_qa/v1.jsonl
+    prompt: prompts/automotive_qa/v1.yaml
+    split: development
+  adversarial-development:
+    dataset: datasets/automotive_qa/adversarial_v1.jsonl
+    prompt: prompts/grounded_qa/v1.yaml
+    split: development
+  squad-development:
+    dataset: datasets/squad_v2/sample_v1.jsonl
+    prompt: prompts/grounded_qa/v1.yaml
+    split: development
+  hotpot-development:
+    dataset: datasets/hotpot_qa/sample_v1.jsonl
+    prompt: prompts/grounded_qa/v1.yaml
+    split: development
+  automotive-holdout:
+    dataset: datasets/automotive_qa/v1.jsonl
+    prompt: prompts/automotive_qa/v1.yaml
+    split: holdout
+  adversarial-holdout:
+    dataset: datasets/automotive_qa/adversarial_v1.jsonl
+    prompt: prompts/grounded_qa/v1.yaml
+    split: holdout
+  squad-holdout:
+    dataset: datasets/squad_v2/sample_v1.jsonl
+    prompt: prompts/grounded_qa/v1.yaml
+    split: holdout
+  hotpot-holdout:
+    dataset: datasets/hotpot_qa/sample_v1.jsonl
+    prompt: prompts/grounded_qa/v1.yaml
+    split: holdout
+
+tiers:
+  smoke:
+    - automotive-development
+  standard:
+    - automotive-development
+    - adversarial-development
+    - squad-development
+    - hotpot-development
+  # Holdout splits are for explicit milestone checks only; run full on demand.
+  full:
+    - automotive-development
+    - adversarial-development
+    - squad-development
+    - hotpot-development
+    - automotive-holdout
+    - adversarial-holdout
+    - squad-holdout
+    - hotpot-holdout

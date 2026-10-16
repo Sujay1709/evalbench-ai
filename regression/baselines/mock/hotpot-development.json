@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "benchmark": "hotpot-development",
+  "provider": "mock",
+  "dataset_name": "hotpot_qa",
+  "dataset_version": "sample_v1",
+  "dataset_hash": "bcfc28ef31b5885db814d365fa9627879dc10c22f77707271f1763b409696a52",
+  "dataset_split": "development",
+  "prompt_id": "grounded-qa",
+  "prompt_version": "v1",
+  "prompt_hash": "c96d90f548fe465e5292ce5d166a461c176f6192bdbceae0ab490959984b0caf",
+  "examples": [
+    {
+      "example_id": "hotpot-5a7d61775542991319bc93b9",
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "example_id": "hotpot-5a8b57f25542995d1e6f1371",
+      "score": 1.0,
+      "passed": true
+    }
+  ]
+}

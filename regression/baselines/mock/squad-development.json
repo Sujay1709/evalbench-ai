@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "benchmark": "squad-development",
+  "provider": "mock",
+  "dataset_name": "squad_v2",
+  "dataset_version": "sample_v1",
+  "dataset_hash": "528af9caace679975f1c8e4c6e8b9dc398620eacb0a152156e9bb9fea2abaf68",
+  "dataset_split": "development",
+  "prompt_id": "grounded-qa",
+  "prompt_version": "v1",
+  "prompt_hash": "c96d90f548fe465e5292ce5d166a461c176f6192bdbceae0ab490959984b0caf",
+  "examples": [
+    {
+      "example_id": "squad-v2-56ddde6b9a695914005b9628",
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "example_id": "squad-v2-56e1dc62cd28a01900c67bce",
+      "score": 1.0,
+      "passed": true
+    }
+  ]
+}

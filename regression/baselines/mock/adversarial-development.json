@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "benchmark": "adversarial-development",
+  "provider": "mock",
+  "dataset_name": "automotive_qa",
+  "dataset_version": "adversarial_v1",
+  "dataset_hash": "e87d1e0e9a76bfefed1c299c0cfc8c65eb564218c0884c53fd686efb86fb1618",
+  "dataset_split": "development",
+  "prompt_id": "grounded-qa",
+  "prompt_version": "v1",
+  "prompt_hash": "c96d90f548fe465e5292ce5d166a461c176f6192bdbceae0ab490959984b0caf",
+  "examples": [
+    {
+      "example_id": "adv-001",
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "example_id": "adv-002",
+      "score": 1.0,
+      "passed": true
+    }
+  ]
+}

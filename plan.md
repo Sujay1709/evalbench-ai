@@ -1,6 +1,6 @@
 # EvalBench Project Plan
 
-> **Status: approved on August 15, 2026. Phases 0-4 are complete, including Phase 4 browser acceptance on September 21, 2026. The Supabase infrastructure interlude is complete. Phase 5's offline implementation is complete; its representative-holdout reliability claim remains open, so Phase 6 has not started.** Each phase must satisfy its tests and completion criteria before the next phase begins.
+> **Status: approved on August 15, 2026. Phases 0-4 are complete, including Phase 4 browser acceptance on September 21, 2026. The Supabase infrastructure interlude is complete. Phase 5's offline implementation is complete; its representative-holdout reliability claim remains open. Phase 6's offline regression gate is implemented; its GitHub Actions acceptance run is pending.** Each phase must satisfy its tests and completion criteria before the next phase begins.
 
 ## 1. Concept
 
@@ -475,6 +475,33 @@ for a representative holdout cohort and document its actual results and limits.
 - A demonstration PR or fixture with an intentionally bad prompt that fails the gate.
 
 **Done when:** A known regression produces a non-zero exit code, useful CI annotation, and saved comparison report.
+
+**Implementation status:** `evalbench gate` compares a fresh candidate run
+with committed per-provider baselines in `regression/baselines/`, using the
+versioned policy, benchmarks, and tiers in `regression/gate.yaml`. Exit code 0
+means pass, 1 means a supported regression, and 2 means the gate could not be
+evaluated (stale or missing baseline, invalid config, provider failure). The
+policy fails on any newly failing example, or on a mean-score drop beyond the
+practical tolerance whose paired bootstrap interval excludes zero; P95 latency
+and estimated cost budgets are optional, and unknown cost fails closed. Failed
+provider calls fail their examples, so they surface through the
+newly-failing check rather than a separate error-rate budget. Reports are
+written as JSON and JUnit XML, and GitHub Actions receives `::error`
+annotations plus a step summary.
+
+`regression/fixtures/automotive_qa_missing_task.yaml` drops the question from
+the automotive prompt. The mock provider abstains when a prompt omits an
+example's question or context, so locally the standard tier fails only
+`automotive-development` with exit code 1 and three newly failing examples.
+`.github/workflows/regression-gate.yml` runs the standard tier on prompt and
+evaluation changes and re-checks that this known-bad prompt still exits 1.
+
+Baselines exist only for the offline mock provider, so the gate currently
+detects prompt and pipeline regressions rather than live-model drift. The
+fixture benchmarks hold two or three examples each, which is too few for the
+interval alone to flag a regression; the newly-failing check carries that
+weight until larger cohorts exist. Phase 6 acceptance still requires a real
+GitHub Actions run showing the annotation and uploaded report.
 
 ### Phase 7 - Render deployment and portfolio polish
 

@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "benchmark": "automotive-holdout",
+  "provider": "mock",
+  "dataset_name": "automotive_qa",
+  "dataset_version": "v1",
+  "dataset_hash": "55f9314f0891759ba68b1ee72fb9c383eddece91a3fe54b15f1025b0679524eb",
+  "dataset_split": "holdout",
+  "prompt_id": "automotive-qa",
+  "prompt_version": "v1",
+  "prompt_hash": "75f2a2bf2b5f4a79a0f988532ea533a69b0961c3c08176f697a7555a32e10d4e",
+  "examples": [
+    {
+      "example_id": "auto-004",
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "example_id": "auto-005",
+      "score": 1.0,
+      "passed": true
+    }
+  ]
+}
