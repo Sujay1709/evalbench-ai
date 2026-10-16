@@ -103,6 +103,6 @@ Local verification on October 15, 2026, with the mock provider and SQLite:
   does most of the work. Larger cohorts are needed before the mean-score check
   means much.
 - Model-based judge scores are not gated; Phase 5's reliability claim is open.
-- Acceptance requires a real GitHub Actions run of
-  `.github/workflows/regression-gate.yml` showing the annotation and the
-  uploaded `regression-gate-reports` artifact.
+
+GitHub Actions acceptance passed on October 15, 2026; see
+[phase-6-acceptance.md](phase-6-acceptance.md).

@@ -11,7 +11,7 @@ Build EvalBench as a portfolio-quality, reproducible LLM evaluation and regressi
 - Phase 4 implementation is merged in PR #20, and browser acceptance passed on September 21, 2026; see `docs/phase-4-acceptance.md` before Phase 5 model-judge work begins.
 - The secure Supabase/PostgreSQL infrastructure interlude merged in PR #21; SQLite remains the offline default. No hosted provisioning or data transfer is implicit.
 - Phase 5 has advisory judge contracts, opt-in single-result execution, blind local human labels, and an optional loopback-only Kev decision adapter; agreement calibration and any model-based release decision remain unimplemented.
-- Phase 6's offline regression gate is implemented (`regression/gate.yaml`, `evalbench/gates/`, `.github/workflows/regression-gate.yml`); acceptance still needs a real GitHub Actions run. Baselines are mock-only; re-record them only for intended behavior changes and review the diff.
+- Phase 6 is complete: the offline regression gate (`regression/gate.yaml`, `evalbench/gates/`, `.github/workflows/regression-gate.yml`) passed GitHub Actions acceptance on October 15, 2026; see `docs/phase-6-acceptance.md`. Baselines are mock-only; re-record them only for intended behavior changes and review the diff.
 - React/Vite and shadcn are approved as a separate frontend migration after Phase 5 rubric/output contracts, before annotation UX. Preserve Jinja until tested feature parity; do not initialize shadcn at the Flask root.
 - Keep all automated tests offline. Do not add LlamaIndex or LangSmith tracing until their planned slice.
 
