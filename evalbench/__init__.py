@@ -31,9 +31,11 @@ def create_app(test_config: dict | None = None) -> Flask:
     from evalbench.api import api_blueprint
     from evalbench.frontend import frontend_blueprint
     from evalbench.health import health_blueprint
+    from evalbench.security import init_security
     from evalbench.web import web_blueprint
     from evalbench.workflows.client import init_inngest
 
+    init_security(app)
     app.register_blueprint(health_blueprint)
     app.register_blueprint(web_blueprint)
     app.register_blueprint(api_blueprint)

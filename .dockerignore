@@ -1,5 +1,6 @@
 .git
 .gitignore
+.github
 .venv
 __pycache__
 *.py[cod]
@@ -8,7 +9,16 @@ __pycache__
 .coverage
 htmlcov
 .env
+.env.*
 instance
+reports
 *.db
 *.sqlite
 *.sqlite3
+node_modules
+frontend/node_modules
+.codex
+.cursor
+.claude
+.agents
+Manware-s-AI-Learning-Toolkit

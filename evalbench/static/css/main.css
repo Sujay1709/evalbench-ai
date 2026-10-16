@@ -271,6 +271,23 @@ h2 { font-size: clamp(1.7rem, 3vw, 2.5rem); letter-spacing: -0.04em; }
 .metrics strong { display: block; font-size: 2rem; color: var(--accent-soft); text-shadow: 0 0 18px rgb(62 224 255 / 35%); }
 .metrics span { color: var(--muted); }
 
+.featured-regression {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  border-radius: 1.15rem;
+  box-shadow: var(--depth);
+}
+.featured-regression h2 { margin: 0.25rem 0 0.5rem; }
+.featured-regression p:not(.eyebrow) { max-width: 60ch; margin: 0; color: var(--muted); line-height: 1.6; }
+.featured-regression .primary-button { display: inline-flex; align-items: center; text-decoration: none; }
+
 .runs-section,
 .results-list { padding-block: 6rem; }
 
