@@ -1,6 +1,6 @@
 # EvalBench Project Plan
 
-> **Status: approved on August 15, 2026. Phases 0-4 are complete, including Phase 4 browser acceptance on September 21, 2026. The Supabase infrastructure interlude is complete. Phase 5's offline implementation is complete; its representative-holdout reliability claim remains open. Phase 6's offline regression gate is implemented; its GitHub Actions acceptance run is pending.** Each phase must satisfy its tests and completion criteria before the next phase begins.
+> **Status: approved on August 15, 2026. Phases 0-4 are complete, including Phase 4 browser acceptance on September 21, 2026. The Supabase infrastructure interlude is complete. Phase 5's offline implementation is complete; its representative-holdout reliability claim remains open. Phase 6 is complete, including GitHub Actions acceptance on October 15, 2026.** Each phase must satisfy its tests and completion criteria before the next phase begins.
 
 ## 1. Concept
 
@@ -500,8 +500,14 @@ Baselines exist only for the offline mock provider, so the gate currently
 detects prompt and pipeline regressions rather than live-model drift. The
 fixture benchmarks hold two or three examples each, which is too few for the
 interval alone to flag a regression; the newly-failing check carries that
-weight until larger cohorts exist. Phase 6 acceptance still requires a real
-GitHub Actions run showing the annotation and uploaded report.
+weight until larger cohorts exist.
+
+**Acceptance:** Passed on October 15, 2026. The gate merged in PR #34, and a
+throwaway draft PR (#35, closed unmerged) that removed the question from the
+automotive prompt failed the GitHub Actions gate with exit 1, two
+`EvalBench gate: automotive-development` failure annotations, and an uploaded
+`regression-gate-reports` artifact. Run links are in
+`docs/phase-6-acceptance.md`.
 
 ### Phase 7 - Render deployment and portfolio polish
 
