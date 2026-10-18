@@ -1,6 +1,6 @@
 # EvalBench Project Plan
 
-> **Status: approved on August 15, 2026. Phases 0-4 are complete, including Phase 4 browser acceptance on September 21, 2026. The Supabase infrastructure interlude is complete. Phase 5's offline implementation is complete; its representative-holdout reliability claim remains open. Phase 6's offline regression gate is implemented; its GitHub Actions acceptance run is pending.** Each phase must satisfy its tests and completion criteria before the next phase begins.
+> **Status: approved on August 15, 2026. Phases 0-4 are complete, including Phase 4 browser acceptance on September 21, 2026. The Supabase infrastructure interlude is complete. Phase 5's offline implementation is complete; its representative-holdout reliability claim remains open. Phase 6's regression gate is accepted: the October 18, 2026 GitHub Actions run shows the known-bad annotation and the uploaded report. Phase 7's public demo is implemented; a live Render deploy, screenshots, and measured resume notes remain.** Each phase must satisfy its tests and completion criteria before the next phase begins.
 
 ## 1. Concept
 
@@ -500,8 +500,17 @@ Baselines exist only for the offline mock provider, so the gate currently
 detects prompt and pipeline regressions rather than live-model drift. The
 fixture benchmarks hold two or three examples each, which is too few for the
 interval alone to flag a regression; the newly-failing check carries that
-weight until larger cohorts exist. Phase 6 acceptance still requires a real
-GitHub Actions run showing the annotation and uploaded report.
+weight until larger cohorts exist.
+
+**Acceptance:** Recorded on October 18, 2026 from
+[Regression gate run 39176061699](https://github.com/Sujay1709/evalbench-ai/actions/runs/39176061699)
+on commit `fac3172`. The standard tier printed `Gate PASSED (exit 0)`. The
+known-bad smoke self-check printed `Gate FAILED (exit 1)` and GitHub recorded
+two annotations: three newly failing examples (`auto-001`, `auto-002`,
+`auto-003`) and a mean-score delta of -1.000 whose paired interval is
+`[-1.000, -1.000]`. The job stayed successful because that exit code is the
+expected regression. Artifact `regression-gate-reports` (ID 12154472363, 4531
+bytes) was uploaded.
 
 ### Phase 7 - Render deployment and portfolio polish
 

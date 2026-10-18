@@ -163,3 +163,12 @@ def test_unusable_gate_requests_exit_2(env, arguments, message):
 
     assert result.exit_code == 2
     assert message in flat(result.output)
+
+
+def test_known_bad_workflow_keeps_regression_annotations_enabled():
+    workflow = (PROJECT_ROOT / ".github" / "workflows" / "regression-gate.yml").read_text()
+    self_check = workflow.split("Self-check that a known-bad prompt fails the gate", 1)[1]
+
+    assert "automotive_qa_missing_task.yaml" in self_check
+    assert "--no-annotations" not in self_check
+    assert "expected 1" in self_check
