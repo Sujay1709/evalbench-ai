@@ -544,7 +544,7 @@ These are stretch goals, not prerequisites for shipping.
 
 ## 10.1 Research-backed feature slices
 
-The following commit sequence translates published evaluation methods into small, reviewable EvalBench experiments. Each slice must preserve offline tests and the development/holdout policy. Research documentation, behavioral contracts, causal evidence sensitivity, and the judge reliability passport are implemented. Confidence-budgeted sampling remains proposed. The passport still cannot authorize a release from a measured holdout cohort, because that cohort has not been labeled.
+The following commit sequence translates published evaluation methods into small, reviewable EvalBench experiments. Each slice must preserve offline tests and the development/holdout policy. Research documentation, behavioral contracts, causal evidence sensitivity, the judge reliability passport, and confidence-budgeted sampling are implemented offline. The passport still cannot authorize a release from a measured holdout cohort, because that cohort has not been labeled. Adaptive sampling is audited on seeded simulations and is not part of `evalbench gate`.
 
 1. **Research documentation** — `docs: connect EvalBench roadmap to evaluation research`
    - Add primary-paper references and clearly separate paper-supported findings, EvalBench design inferences, and untested hypotheses.
@@ -577,6 +577,7 @@ The following commit sequence translates published evaluation methods into small
    - Require minimum sample coverage for every configured tag and difficulty slice so cheap/easy examples cannot dominate the decision.
    - Persist the sampling order, stop reason, interval history, model-call count, and estimated cost.
    - Validate decisions against full-suite replay on seeded simulations before reporting saved calls or enabling a CI gate.
+   - **Status:** Implemented as an offline audit. `audit_adaptive_sample` walks a fixed schedule (hard, then tag, then id), keeps the paired bootstrap interval and the minimum detectable effect, and will not stop until every tag and difficulty in the suite has its configured coverage. `saved_calls` is set only when the early decision matches the full-suite decision. A disagreement leaves `saved_calls` empty. `evalbench gate` still scores every example in the tier; the sampler is not wired into CI. The costs in the audit are simulation inputs, not measured provider bills.
 
 Recommended sequencing: finish Phase 3 durability first, implement behavioral contracts and evidence sensitivity during Phase 4, calibrate the judge in Phase 5, and add budget-aware stopping only after the Phase 6 statistical regression policy is verified.
 

@@ -51,6 +51,9 @@ is lengthened. Supplying a passport to the deterministic gate is also refused.
 A passing passport checks the evidence it was given. This repository does not
 contain a measured judge-human kappa that meets those thresholds.
 
+`audit_adaptive_sample` can study an early stop on a seeded simulation. The
+gate does not use it. Every benchmark in a tier is still scored in full.
+
 ## Reports
 
 | Output | Option | Contents |
