@@ -11,8 +11,10 @@ from evalbench.gates.runner import (
     record_baselines,
     run_gate,
 )
+from evalbench.gates.sampler import AdaptiveSampleAudit, audit_adaptive_sample
 
 __all__ = [
+    "AdaptiveSampleAudit",
     "BaselineError",
     "BaselineSnapshot",
     "BenchmarkOutcome",
@@ -23,6 +25,7 @@ __all__ = [
     "GateReport",
     "PolicyEvaluation",
     "RecordedBaseline",
+    "audit_adaptive_sample",
     "evaluate_policy",
     "github_annotations",
     "json_report",

@@ -42,6 +42,18 @@ candidate prompt is invalid; a baseline is missing; a baseline is stale
 or the provider fails before a run completes. Exit code 2 takes precedence
 over exit code 1.
 
+The shipped config does not declare a judge. Deterministic scorers remain the
+release authority. A config that names a judge is refused with exit code 2
+unless a matching passport passes every section: rubric identity, repeated
+scores, a holdout order-swap flip rate within the passport maximum, eligible
+holdout calibration readiness, and ratings that stay put when the same answer
+is lengthened. Supplying a passport to the deterministic gate is also refused.
+A passing passport checks the evidence it was given. This repository does not
+contain a measured judge-human kappa that meets those thresholds.
+
+`audit_adaptive_sample` can study an early stop on a seeded simulation. The
+gate does not use it. Every benchmark in a tier is still scored in full.
+
 ## Reports
 
 | Output | Option | Contents |

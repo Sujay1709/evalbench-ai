@@ -1,0 +1,50 @@
+{
+  "id": "auto-sensitivity-001",
+  "question": "What is the sample EV's DC fast-charge time from 10% to 80%?",
+  "supported_answer": "28 minutes",
+  "split": "development",
+  "variants": [
+    {
+      "id": "auto-sensitivity-001-supported",
+      "kind": "supported",
+      "evidence_id": "charge-test",
+      "changed_evidence_ids": [],
+      "context": "Charge test: the sample EV's DC fast charge took 28 minutes.",
+      "expected_behavior": "answer_preservation",
+      "expected_answer": "28 minutes"
+    },
+    {
+      "id": "auto-sensitivity-001-evidence-removed",
+      "kind": "evidence_removed",
+      "evidence_id": "charge-test",
+      "changed_evidence_ids": [
+        "charge-test"
+      ],
+      "context": "",
+      "expected_behavior": "abstention",
+      "expected_answer": "Insufficient evidence"
+    },
+    {
+      "id": "auto-sensitivity-001-value-swapped",
+      "kind": "value_swapped",
+      "evidence_id": "charge-test",
+      "changed_evidence_ids": [
+        "charge-test"
+      ],
+      "context": "Charge test: the sample EV's DC fast charge took 41 minutes.",
+      "expected_behavior": "answer_revision",
+      "expected_answer": "41 minutes"
+    },
+    {
+      "id": "auto-sensitivity-001-contradictory",
+      "kind": "contradictory",
+      "evidence_id": "charge-test",
+      "changed_evidence_ids": [
+        "charge-test"
+      ],
+      "context": "Charge test: the sample EV's DC fast charge took 28 minutes. A second lab note lists 19 minutes for the same test.",
+      "expected_behavior": "abstention",
+      "expected_answer": "Insufficient evidence"
+    }
+  ]
+}

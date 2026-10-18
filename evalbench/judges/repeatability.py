@@ -47,6 +47,9 @@ class RepeatabilityReport:
     judge_model: str
     prompt_version: str
     prompt_hash: str
+    rubric_id: str
+    rubric_version: str
+    rubric_hash: str
     attempt_ids: tuple[str, ...]
     attempt_pair_count: int
     rating_pair_count: int
@@ -149,6 +152,9 @@ def summarize_repeated_judgments(
         judge_model=identity[4],
         prompt_version=identity[5],
         prompt_hash=identity[6],
+        rubric_id=identity[1],
+        rubric_version=identity[2],
+        rubric_hash=identity[3],
         attempt_ids=tuple(attempt.attempt_id for attempt in ordered),
         attempt_pair_count=len(attempt_pairs),
         rating_pair_count=rating_pair_count,

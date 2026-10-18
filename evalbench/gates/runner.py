@@ -20,6 +20,7 @@ from evalbench.gates.baseline import (
 )
 from evalbench.gates.config import GateConfig, GateConfigError, GatePolicy
 from evalbench.gates.policy import PolicyEvaluation, evaluate_policy
+from evalbench.judges.passport import JudgePassport, release_gate_block
 from evalbench.prompts import load_prompt
 from evalbench.providers import Provider, ProviderError
 from evalbench.runners import EvaluationRunner
@@ -95,8 +96,12 @@ def run_gate(
     tier: str,
     provider: Provider,
     candidate_prompts: dict[str, Path] | None = None,
+    judge_passport: JudgePassport | None = None,
 ) -> GateReport:
     """Evaluate every benchmark in a tier; one benchmark's error does not hide the others."""
+    block = release_gate_block(judge_passport, config.judge)
+    if block:
+        raise GateConfigError(block)
     overrides = candidate_prompts or {}
     names = _check_candidate_prompts(config, tier, overrides)
     runner = EvaluationRunner(provider)

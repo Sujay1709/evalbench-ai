@@ -544,35 +544,40 @@ These are stretch goals, not prerequisites for shipping.
 
 ## 10.1 Research-backed feature slices
 
-The following commit sequence translates published evaluation methods into small, reviewable EvalBench experiments. These are proposed features, not implemented capabilities, and each slice must preserve offline tests and the development/holdout policy.
+The following commit sequence translates published evaluation methods into small, reviewable EvalBench experiments. Each slice must preserve offline tests and the development/holdout policy. Research documentation, behavioral contracts, causal evidence sensitivity, the judge reliability passport, and confidence-budgeted sampling are implemented offline. The passport still cannot authorize a release from a measured holdout cohort, because that cohort has not been labeled. Adaptive sampling is audited on seeded simulations and is not part of `evalbench gate`.
 
 1. **Research documentation** — `docs: connect EvalBench roadmap to evaluation research`
    - Add primary-paper references and clearly separate paper-supported findings, EvalBench design inferences, and untested hypotheses.
    - Done when every research claim links to a primary source and no proposed metric is presented as implemented.
+   - **Status:** Done. README "Research foundations" cites the primary papers and keeps later metrics out of the verified-capabilities list until their tests pass.
 
 2. **Behavioral contracts** — `feat: add behavioral perturbation contracts`
    - Extend the dataset schema with a relationship type (`minimum_functionality`, `invariance`, or `directional`) and a stable source-example ID.
    - Add deterministic automotive perturbations for casing, harmless wording, numeric evidence changes, missing evidence, and contradictory evidence.
    - Report invariance violation and directional success without replacing existing exact-match, F1, answerability, or schema scores.
    - Test malformed relationships, stable hashes, split isolation, deterministic generation, and paired metric aggregation entirely offline.
+   - **Status:** Implemented offline. `BehavioralContract` stores the relation and `source_example_id`. Rows with no contract are minimum-functionality roots. `datasets/automotive_qa/behavioral_v1.jsonl` is the generated casing, harmless-wording, numeric-evidence, missing-evidence, and contradictory-evidence family, with one complete family in development and one in holdout. `summarize_behavioral_contracts` reports the two rates from ordinary pass/fail bits. Loader validation rejects a missing source, a cross-split link, a self-link, and a perturbation of a perturbation. An absent contract is omitted from the content hash, so earlier dataset hashes stay stable. These rates are contract checks on fixture answers, not a measured model-robustness result.
 
 3. **Causal evidence sensitivity** — `feat: score counterfactual evidence sensitivity`
    - Define supported, evidence-removed, value-swapped, and contradictory context variants for a single question family.
    - Record which evidence IDs changed and whether the expected behavior is answer preservation, answer revision, or abstention.
    - Add a deterministic sensitivity scorer and example-level evidence explaining every pass or failure.
    - Done when a deliberately evidence-insensitive mock system fails while an evidence-responsive fixture passes.
+   - **Status:** Implemented offline on the development family `datasets/automotive_qa/sensitivity_v1.json`. Each variant records its evidence ID, the IDs that changed, and the expected behavior. `score_evidence_sensitivity` explains every pass and failure. `evidence_insensitive_outputs` always repeats the supported answer and fails. `evidence_responsive_outputs` follows the evidence and passes. Exact match still scores a single string on its own. This is a scorer check, not a measured model result, and the family is not a holdout.
 
 4. **Judge reliability passport** — `feat: add calibrated judge reliability reports`
    - Introduce versioned rubrics and strict structured judge output.
    - Run repeated scoring plus pairwise order swaps; measure agreement, order-flip rate, confusion matrices, and Cohen's or weighted kappa against a human-reviewed subset.
    - Keep deterministic scorers authoritative for directly checkable properties and prohibit uncalibrated judges from gating releases.
    - Mock all judge responses in automated tests; keep credentialed calibration runs opt-in and cost-capped.
+   - **Status:** The passport is implemented. Versioned rubrics, strict judge output, repeatability, order swaps, agreement, confusion matrices, and weighted kappa were already available from Phase 5. `build_judge_passport` requires all of those sections plus a verbosity probe that keeps the same ratings when an answer is lengthened. `run_gate` refuses a declared judge unless that passport matches the declaration and every section passes, and it refuses a passport on the deterministic gate. The shipped `regression/gate.yaml` declares no judge. Tests use mocked ratings and a synthetic readiness report. A passing passport in those tests is a threshold check, not a measured judge-human kappa, and no judge in this repository is authorized to gate a release.
 
 5. **Confidence-budgeted regression sampling** — `feat: add uncertainty-aware evaluation sampling`
    - Implement paired intervals and documented minimum-detectable-effect thresholds before adaptive stopping.
    - Require minimum sample coverage for every configured tag and difficulty slice so cheap/easy examples cannot dominate the decision.
    - Persist the sampling order, stop reason, interval history, model-call count, and estimated cost.
    - Validate decisions against full-suite replay on seeded simulations before reporting saved calls or enabling a CI gate.
+   - **Status:** Implemented as an offline audit. `audit_adaptive_sample` walks a fixed schedule (hard, then tag, then id), keeps the paired bootstrap interval and the minimum detectable effect, and will not stop until every tag and difficulty in the suite has its configured coverage. `saved_calls` is set only when the early decision matches the full-suite decision. A disagreement leaves `saved_calls` empty. `evalbench gate` still scores every example in the tier; the sampler is not wired into CI. The costs in the audit are simulation inputs, not measured provider bills.
 
 Recommended sequencing: finish Phase 3 durability first, implement behavioral contracts and evidence sensitivity during Phase 4, calibrate the judge in Phase 5, and add budget-aware stopping only after the Phase 6 statistical regression policy is verified.
 

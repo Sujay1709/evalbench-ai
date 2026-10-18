@@ -12,6 +12,21 @@ class EvaluationSplit(StrEnum):
     HOLDOUT = "holdout"
 
 
+class BehavioralRelation(StrEnum):
+    """CheckList-style link from a derived case back to a capability case."""
+
+    MINIMUM_FUNCTIONALITY = "minimum_functionality"
+    INVARIANCE = "invariance"
+    DIRECTIONAL = "directional"
+
+
+class BehavioralContract(BaseModel):
+    """A derived example must name the capability example it was perturbed from."""
+
+    relation: BehavioralRelation
+    source_example_id: str = Field(min_length=1, max_length=120)
+
+
 class ScorerSpec(BaseModel):
     type: Literal["exact_match", "json_schema", "token_f1", "answerability"]
     expected: str | None = None
@@ -60,3 +75,4 @@ class EvaluationExample(BaseModel):
     difficulty: Literal["easy", "medium", "hard"] = "medium"
     split: EvaluationSplit = EvaluationSplit.DEVELOPMENT
     provenance: DatasetProvenance | None = None
+    contract: BehavioralContract | None = None
