@@ -106,6 +106,16 @@ Local verification on October 15, 2026, with the mock provider and SQLite:
 | `gate --tier standard` | 0 | All four development benchmarks passed |
 | `gate --tier standard --candidate-prompt automotive-development=<fixture>` | 1 | Only `automotive-development` failed: `auto-001`, `auto-002`, and `auto-003` newly failing; mean delta -1.000 |
 
+## Acceptance
+
+Recorded on October 18, 2026 from
+[Regression gate run 39176061699](https://github.com/Sujay1709/evalbench-ai/actions/runs/39176061699)
+on commit `fac3172`. The standard tier exited 0. The known-bad smoke
+self-check exited 1, GitHub showed annotations for `auto-001`, `auto-002`,
+and `auto-003` plus a mean-score delta of -1.000, and artifact
+`regression-gate-reports` (ID 12154472363) was uploaded. The job stayed
+green because exit 1 is the expected result for that fixture.
+
 ## Limits
 
 - Baselines exist only for the offline mock provider. The gate detects prompt
@@ -116,6 +126,3 @@ Local verification on October 15, 2026, with the mock provider and SQLite:
   does most of the work. Larger cohorts are needed before the mean-score check
   means much.
 - Model-based judge scores are not gated; Phase 5's reliability claim is open.
-- Acceptance requires a real GitHub Actions run of
-  `.github/workflows/regression-gate.yml` showing the annotation and the
-  uploaded `regression-gate-reports` artifact.
