@@ -544,7 +544,7 @@ These are stretch goals, not prerequisites for shipping.
 
 ## 10.1 Research-backed feature slices
 
-The following commit sequence translates published evaluation methods into small, reviewable EvalBench experiments. Each slice must preserve offline tests and the development/holdout policy. Research documentation, behavioral contracts, and causal evidence sensitivity are implemented. The judge reliability passport and confidence-budgeted sampling remain proposed.
+The following commit sequence translates published evaluation methods into small, reviewable EvalBench experiments. Each slice must preserve offline tests and the development/holdout policy. Research documentation, behavioral contracts, causal evidence sensitivity, and the judge reliability passport are implemented. Confidence-budgeted sampling remains proposed. The passport still cannot authorize a release from a measured holdout cohort, because that cohort has not been labeled.
 
 1. **Research documentation** — `docs: connect EvalBench roadmap to evaluation research`
    - Add primary-paper references and clearly separate paper-supported findings, EvalBench design inferences, and untested hypotheses.
@@ -570,6 +570,7 @@ The following commit sequence translates published evaluation methods into small
    - Run repeated scoring plus pairwise order swaps; measure agreement, order-flip rate, confusion matrices, and Cohen's or weighted kappa against a human-reviewed subset.
    - Keep deterministic scorers authoritative for directly checkable properties and prohibit uncalibrated judges from gating releases.
    - Mock all judge responses in automated tests; keep credentialed calibration runs opt-in and cost-capped.
+   - **Status:** The passport is implemented. Versioned rubrics, strict judge output, repeatability, order swaps, agreement, confusion matrices, and weighted kappa were already available from Phase 5. `build_judge_passport` requires all of those sections plus a verbosity probe that keeps the same ratings when an answer is lengthened. `run_gate` refuses a declared judge unless that passport matches the declaration and every section passes, and it refuses a passport on the deterministic gate. The shipped `regression/gate.yaml` declares no judge. Tests use mocked ratings and a synthetic readiness report. A passing passport in those tests is a threshold check, not a measured judge-human kappa, and no judge in this repository is authorized to gate a release.
 
 5. **Confidence-budgeted regression sampling** — `feat: add uncertainty-aware evaluation sampling`
    - Implement paired intervals and documented minimum-detectable-effect thresholds before adaptive stopping.

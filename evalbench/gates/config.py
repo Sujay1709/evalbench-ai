@@ -52,6 +52,17 @@ class BenchmarkSpec(BaseModel):
     split: EvaluationSplit
 
 
+class JudgeGateDeclaration(BaseModel):
+    """A judge named here may affect the gate only with a matching passing passport."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    judge_id: str = Field(min_length=1)
+    rubric_id: str = Field(min_length=1)
+    rubric_version: str = Field(min_length=1)
+    rubric_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class GateConfig(BaseModel):
     """`root` is relative to the config file; every other relative path is relative to root."""
 
@@ -61,6 +72,7 @@ class GateConfig(BaseModel):
     root: Path = Path(".")
     baselines: Path = Path("baselines")
     policy: GatePolicy
+    judge: JudgeGateDeclaration | None = None
     benchmarks: dict[BenchmarkName, BenchmarkSpec] = Field(min_length=1)
     tiers: dict[BenchmarkName, list[BenchmarkName]] = Field(min_length=1)
     source: Path = Field(default=Path("gate.yaml"), exclude=True)
