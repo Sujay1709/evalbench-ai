@@ -95,8 +95,9 @@ drops the `{question}` line from the automotive prompt. The mock provider
 abstains with `insufficient evidence` when a prompt omits an example's
 question or context, which models a real failure: a model cannot answer a
 question it never received. The workflow re-runs this fixture after the main
-gate and fails if it does not exit 1, so a gate that silently stops detecting
-regressions is caught.
+gate. Annotations stay enabled, so the caught regression prints an `::error`
+line and a step-summary table. The step exits 0 when the fixture exits 1, and
+fails the job when the gate misses that regression.
 
 Local verification on October 15, 2026, with the mock provider and SQLite:
 
