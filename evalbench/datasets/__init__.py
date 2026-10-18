@@ -1,3 +1,9 @@
+from evalbench.datasets.contracts import (
+    BehavioralContractError,
+    BehavioralContractReport,
+    summarize_behavioral_contracts,
+    validate_behavioral_contracts,
+)
 from evalbench.datasets.huggingface import (
     HuggingFaceDataset,
     HuggingFaceImportError,
@@ -12,7 +18,10 @@ from evalbench.datasets.loader import (
     LoadedDataset,
     load_jsonl,
 )
+from evalbench.datasets.perturbations import build_behavioral_examples
 from evalbench.datasets.schemas import (
+    BehavioralContract,
+    BehavioralRelation,
     DatasetProvenance,
     EvaluationExample,
     EvaluationSplit,
@@ -20,6 +29,10 @@ from evalbench.datasets.schemas import (
 )
 
 __all__ = [
+    "BehavioralContract",
+    "BehavioralContractError",
+    "BehavioralContractReport",
+    "BehavioralRelation",
     "DatasetValidationError",
     "DatasetProvenance",
     "DatasetSplitError",
@@ -31,7 +44,10 @@ __all__ = [
     "HuggingFaceImportSpec",
     "LoadedDataset",
     "ScorerSpec",
+    "build_behavioral_examples",
     "deterministic_offsets",
     "import_huggingface_dataset",
     "load_jsonl",
+    "summarize_behavioral_contracts",
+    "validate_behavioral_contracts",
 ]

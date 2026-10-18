@@ -544,17 +544,19 @@ These are stretch goals, not prerequisites for shipping.
 
 ## 10.1 Research-backed feature slices
 
-The following commit sequence translates published evaluation methods into small, reviewable EvalBench experiments. These are proposed features, not implemented capabilities, and each slice must preserve offline tests and the development/holdout policy.
+The following commit sequence translates published evaluation methods into small, reviewable EvalBench experiments. Each slice must preserve offline tests and the development/holdout policy. Research documentation and behavioral contracts are implemented. Evidence sensitivity, the judge reliability passport, and confidence-budgeted sampling remain proposed.
 
 1. **Research documentation** — `docs: connect EvalBench roadmap to evaluation research`
    - Add primary-paper references and clearly separate paper-supported findings, EvalBench design inferences, and untested hypotheses.
    - Done when every research claim links to a primary source and no proposed metric is presented as implemented.
+   - **Status:** Done. README "Research foundations" cites the primary papers and keeps later metrics out of the verified-capabilities list until their tests pass.
 
 2. **Behavioral contracts** — `feat: add behavioral perturbation contracts`
    - Extend the dataset schema with a relationship type (`minimum_functionality`, `invariance`, or `directional`) and a stable source-example ID.
    - Add deterministic automotive perturbations for casing, harmless wording, numeric evidence changes, missing evidence, and contradictory evidence.
    - Report invariance violation and directional success without replacing existing exact-match, F1, answerability, or schema scores.
    - Test malformed relationships, stable hashes, split isolation, deterministic generation, and paired metric aggregation entirely offline.
+   - **Status:** Implemented offline. `BehavioralContract` stores the relation and `source_example_id`. Rows with no contract are minimum-functionality roots. `datasets/automotive_qa/behavioral_v1.jsonl` is the generated casing, harmless-wording, numeric-evidence, missing-evidence, and contradictory-evidence family, with one complete family in development and one in holdout. `summarize_behavioral_contracts` reports the two rates from ordinary pass/fail bits. Loader validation rejects a missing source, a cross-split link, a self-link, and a perturbation of a perturbation. An absent contract is omitted from the content hash, so earlier dataset hashes stay stable. These rates are contract checks on fixture answers, not a measured model-robustness result.
 
 3. **Causal evidence sensitivity** — `feat: score counterfactual evidence sensitivity`
    - Define supported, evidence-removed, value-swapped, and contradictory context variants for a single question family.

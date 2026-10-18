@@ -30,6 +30,7 @@ class LoadedDataset:
             raise DatasetSplitError(
                 f"Dataset '{self.name}:{self.version}' contains no '{split.value}' examples"
             )
+        _validate_contracts(selected_examples)
 
         return LoadedDataset(
             name=self.name,
@@ -49,6 +50,20 @@ def _content_hash(examples: tuple[EvaluationExample, ...] | list[EvaluationExamp
         example.model_dump(by_alias=True, exclude_none=True, mode="json") for example in examples
     ]
     return hashlib.sha256(_canonical_json(canonical_examples).encode()).hexdigest()
+
+
+def _validate_contracts(examples: tuple[EvaluationExample, ...] | list[EvaluationExample]) -> None:
+    """Keep perturbation links inside the examples being hashed or scored."""
+
+    from evalbench.datasets.contracts import (
+        BehavioralContractError,
+        validate_behavioral_contracts,
+    )
+
+    try:
+        validate_behavioral_contracts(examples)
+    except BehavioralContractError as exc:
+        raise DatasetValidationError(str(exc)) from exc
 
 
 def load_jsonl(path: str | Path) -> LoadedDataset:
@@ -76,6 +91,7 @@ def load_jsonl(path: str | Path) -> LoadedDataset:
 
     if not examples:
         raise DatasetValidationError("Dataset contains no examples")
+    _validate_contracts(examples)
 
     return LoadedDataset(
         name=dataset_path.parent.name,

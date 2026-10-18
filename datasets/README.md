@@ -7,10 +7,14 @@ EvalBench keeps small, reviewable JSONL fixtures in Git so offline tests and por
 | Path | Purpose | Size | Source revision |
 |---|---|---:|---|
 | `automotive_qa/v1.jsonl` | Native infrastructure and automotive-domain smoke test | 5 | Repository-authored fixture |
+| `automotive_qa/behavioral_v1.jsonl` | Capability, invariance, and directional contract family | 12 | Repository-authored fixture |
+| `automotive_qa/adversarial_v1.jsonl` | Injection, false premise, unsupported claims, and conflicting evidence | 4 | Repository-authored fixture |
 | `squad_v2/sample_v1.jsonl` | Grounded QA and explicit abstention | 4 | `3ffb306f725f7d2ce8394bc1873b24868140c412` |
 | `hotpot_qa/sample_v1.jsonl` | Supporting-fact and multi-hop QA | 4 | `1908d6afbbead072334abe2965f91bd2709910ab` |
 
 The SQuAD v2 and HotpotQA samples are derived from their Hugging Face validation splits and are attributed under CC BY-SA 4.0. See the [SQuAD v2 dataset card](https://huggingface.co/datasets/rajpurkar/squad_v2) and [HotpotQA dataset card](https://huggingface.co/datasets/hotpotqa/hotpot_qa).
+
+`behavioral_v1.jsonl` is generated from two capability rows, one in each split. Each row grows five linked cases: casing and harmless wording must keep the answer, a numeric evidence change must revise it, and missing or contradictory evidence must abstain. The file is a contract fixture. It is not a model benchmark score.
 
 ## Run the checked-in samples
 
