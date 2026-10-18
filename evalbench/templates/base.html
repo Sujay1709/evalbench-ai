@@ -1,28 +1,62 @@
+{% from "_icons.html" import icon %}
+{%- set sections = {
+  "web.index": "overview", "web.run_detail": "overview",
+  "web.comparison": "compare", "web.comparison_example": "compare",
+  "web.calibration": "calibration", "web.leaderboard": "leaderboard",
+} -%}
+{%- set current = sections.get(request.endpoint, "overview") -%}
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="description" content="EvalBench - reproducible LLM evaluation and regression testing">
+    <meta name="theme-color" content="#09090b">
     <title>{% block title %}EvalBench{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
   </head>
-  <body class="stage">
+  <body class="canvas">
     <a class="skip-link" href="#main-content">Skip to content</a>
-    <header class="site-header">
+    <header class="topbar">
       <a class="brand" href="{{ url_for('web.index') }}" aria-label="EvalBench home">
-        <span class="brand-mark">E</span>
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="brand-fill" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#c4b5fd"/><stop offset="0.55" stop-color="#8b5cf6"/><stop offset="1" stop-color="#5b21b6"/>
+            </linearGradient>
+          </defs>
+          <rect width="32" height="32" rx="9" fill="url(#brand-fill)"/>
+          <path d="M9 21v-3M14 21v-7M19 21v-10M24 21v-5" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+        </svg>
         <span>EvalBench</span>
       </a>
-      <nav aria-label="Main navigation"><a href="{{ url_for('web.comparison') }}">Compare runs</a><a href="{{ url_for('web.calibration') }}">Calibration</a><a href="{{ url_for('web.leaderboard') }}">Leaderboard</a></nav>
+      <div class="topbar-meta">
+        {% if config.DEMO_READ_ONLY %}
+          <span class="pill pill-quiet">{{ icon("lock", 14) }}Read-only demo</span>
+        {% endif %}
+        <a class="topbar-link" href="https://github.com/Sujay1709/evalbench-ai" target="_blank" rel="noopener noreferrer" aria-label="EvalBench source on GitHub">{{ icon("source", 16) }}<span>Source</span></a>
+      </div>
     </header>
+
+    <nav class="dock glass" aria-label="Main navigation">
+      {% for key, endpoint, label in [
+        ("overview", "web.index", "Overview"),
+        ("compare", "web.comparison", "Compare runs"),
+        ("calibration", "web.calibration", "Calibration"),
+        ("leaderboard", "web.leaderboard", "Leaderboard"),
+      ] %}
+        <a href="{{ url_for(endpoint) }}"{% if current == key %} aria-current="page"{% endif %}>
+          {{ icon(key, 18) }}<span class="dock-label">{{ label }}</span>
+        </a>
+      {% endfor %}
+    </nav>
 
     <main id="main-content">{% block content %}{% endblock %}</main>
 
-    <footer>
-      Reproducible evaluation. Measurable decisions. No API key required.
+    <footer class="site-footer">
+      <span>Reproducible evaluation. Measurable decisions. No API key required.</span>
     </footer>
     {% block scripts %}{% endblock %}
-    <script src="{{ url_for('static', filename='js/spatial-stage.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/glass.js') }}" defer></script>
   </body>
 </html>

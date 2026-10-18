@@ -1,0 +1,26 @@
+# Read-only public demo. The container seeds its own SQLite database on every
+# start, so no database service, disk, or model key is needed. Never add
+# OPENAI_API_KEY or set DEMO_READ_ONLY=false here.
+services:
+  - type: web
+    name: evalbench-demo
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health/ready
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DEMO_READ_ONLY
+        value: "true"
+      - key: LLM_PROVIDER
+        value: mock
+      - key: MAX_RUN_COST_USD
+        value: "0"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: SECRET_KEY
+        generateValue: true

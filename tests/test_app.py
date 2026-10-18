@@ -9,19 +9,21 @@ def test_homepage_loads(client):
     assert b"Replace prompt intuition with evidence" in response.data
 
 
-def test_spatial_stage_is_interactive_and_respects_reduced_motion(client):
+def test_glass_surfaces_track_the_pointer_and_respect_reduced_motion(client):
     page = client.get("/")
-    script = client.get("/static/js/spatial-stage.js")
+    script = client.get("/static/js/glass.js")
+    stylesheet = client.get("/static/css/main.css")
+    reduced_motion = stylesheet.data.split(b"prefers-reduced-motion: reduce", 1)[1]
 
-    assert b"spatial-stage.js" in page.data
-    assert b'class="hero-panel slab"' in page.data
+    assert b"glass.js" in page.data
+    assert b"class=\"glass" in page.data
     assert script.status_code == 200
     assert b"prefers-reduced-motion" in script.data
-    assert b"pointerdown" in script.data
     assert b"pointermove" in script.data
+    assert b"glass-interactive" in reduced_motion
 
 
-def test_recent_runs_project_as_a_touch_album_and_keep_the_ledger(app, client):
+def test_recent_runs_project_as_a_canvas_and_keep_the_ledger(app, client):
     with app.app_context():
         db.session.add(
             EvaluationRun(
@@ -43,22 +45,19 @@ def test_recent_runs_project_as_a_touch_album_and_keep_the_ledger(app, client):
         db.session.commit()
 
     homepage = client.get("/")
-    script = client.get("/static/js/album.js")
-    stylesheet = client.get("/static/css/main.css")
-    reduced_motion = stylesheet.data.split(b"prefers-reduced-motion: reduce", 1)[1]
+    script = client.get("/static/js/run-canvas.js")
 
     assert homepage.status_code == 200
-    assert b"data-run-album" in homepage.data
-    assert b"data-album-plate" in homepage.data
+    assert b"data-run-canvas" in homepage.data
+    assert b"data-run-node" in homepage.data
     assert b'href="/runs/album-test-run"' in homepage.data
     assert b"<th>Split</th>" in homepage.data
     assert b"Holdout" in homepage.data
     assert b"Replace prompt intuition with evidence" in homepage.data
+    assert b'aria-current="page"' in homepage.data
+    assert b"Compare runs" in homepage.data
     assert script.status_code == 200
-    assert b"prefers-reduced-motion" in script.data
-    assert b"pointerdown" in script.data
-    assert b"translateZ" in stylesheet.data
-    assert b".album-plate" in reduced_motion
+    assert b"Arrow" in script.data
 
 
 def test_dashboard_and_run_detail_display_the_dataset_split(app, client):

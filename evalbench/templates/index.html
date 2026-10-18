@@ -1,28 +1,89 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% macro tone(run) -%}
+  {%- if run.status == "failed" -%}fail
+  {%- elif run.status != "completed" -%}partial
+  {%- elif run.pass_rate >= 1 -%}ok
+  {%- elif run.pass_rate <= 0 -%}fail
+  {%- else -%}partial{%- endif -%}
+{%- endmacro %}
 
 {% block title %}EvalBench · LLM quality you can defend{% endblock %}
 
 {% block content %}
   <section class="hero">
-    <div>
+    <div class="hero-copy-block">
       <p class="eyebrow">LLM evaluation and regression testing</p>
       <h1>Replace prompt intuition with evidence.</h1>
       <p class="hero-copy">
         EvalBench runs versioned automotive QA cases through reproducible scorers,
         preserves every result, and makes regressions inspectable.
       </p>
+      <div class="hero-actions">
+        {% if featured %}
+          <a class="primary-button" href="{{ url_for('web.comparison', baseline=featured.baseline.id, candidate=featured.candidate.id, change='regressed') }}">See a caught regression{{ icon("arrow", 16) }}</a>
+        {% endif %}
+        <code class="command">{{ icon("terminal", 14) }}python -m evalbench.cli gate --tier smoke</code>
+      </div>
     </div>
-    <div class="hero-panel slab" aria-label="Current architecture">
-      <span>Dataset</span><strong>→</strong><span>Provider</span><strong>→</strong><span>Scorers</span>
-      <p>Content hashes + cached responses + append-only runs</p>
-    </div>
+
+    <figure class="pipeline glass" aria-labelledby="pipeline-title" data-pipeline>
+      <figcaption class="pipeline-bar">
+        <span class="crumb">evalbench <span aria-hidden="true">/</span> <strong id="pipeline-title">Evaluation pipeline</strong></span>
+        <span class="pill pill-quiet">offline</span>
+      </figcaption>
+      <ol class="pipeline-graph">
+        {% for key, name, detail, status, link in [
+          ("dataset", "Dataset", "JSONL · versioned splits", "Content-hashed", "right"),
+          ("prompt", "Prompt", "YAML registry", "Hashed per version", "down"),
+          ("provider", "Provider", "mock · offline", "$0 model spend", "left"),
+          ("scorers", "Scorers", "4 deterministic", "Evidence kept", "down"),
+          ("store", "Run store", "append-only history", "Cached replays", "right"),
+          ("gate", "CI gate", "committed baselines", "Exits 1 on regression", none),
+        ] %}
+          <li class="node node-{{ key }} glass"{% if link %} data-link="{{ link }}"{% endif %}>
+            <span class="node-head">{{ icon(key, 16) }}<span class="node-name">{{ name }}</span></span>
+            <span class="node-detail">{{ detail }}</span>
+            <span class="node-status tone-ok">{{ icon("check", 14) }}{{ status }}</span>
+          </li>
+        {% endfor %}
+      </ol>
+    </figure>
   </section>
 
   <section class="metrics" aria-label="Project capabilities">
-    <article class="slab"><strong>2</strong><span>deterministic scorers</span></article>
-    <article class="slab"><strong>100%</strong><span>offline reproducibility</span></article>
-    <article class="slab"><strong>$0</strong><span>API cost for this phase</span></article>
+    <article class="glass"><strong>4</strong><span>deterministic scorers</span></article>
+    <article class="glass"><strong>100%</strong><span>offline reproducibility</span></article>
+    <article class="glass"><strong>$0</strong><span>model spend in this demo</span></article>
   </section>
+
+  {% if featured %}
+    {% set base, cand = featured.baseline, featured.candidate %}
+    <section class="featured-regression glass glass-tint-rose" aria-labelledby="featured-title">
+      <div class="featured-copy">
+        <p class="eyebrow eyebrow-rose">Start here</p>
+        <h2 id="featured-title">Inspect a caught regression</h2>
+        <p>
+          A candidate prompt dropped the question line. Of {{ featured.examples }} automotive
+          examples, {{ featured.newly_failing }} passed in the baseline and fail now, so the CI
+          regression gate exits 1.
+        </p>
+      </div>
+      <dl class="regression-meter">
+        {% for label, run in [("Baseline", base), ("Candidate", cand)] %}
+          <div class="meter-row tone-{{ tone(run) }}">
+            <dt>{{ label }} <span class="meter-id">{{ run.id[:8] }}</span></dt>
+            <dd>
+              <span class="meter-track" aria-hidden="true"><span class="meter-fill" style="--fill: {{ run.pass_rate }}"></span></span>
+              <span class="meter-value">{{ run.passed_examples }}/{{ run.total_examples }} passing</span>
+            </dd>
+          </div>
+        {% endfor %}
+      </dl>
+      <a class="primary-button" href="{{ url_for('web.comparison', baseline=base.id, candidate=cand.id, change='regressed') }}">Open the regression report{{ icon("arrow", 16) }}</a>
+    </section>
+  {% endif %}
 
   <section class="runs-section" aria-labelledby="recent-runs-title">
     <div class="section-heading">
@@ -30,36 +91,46 @@
         <p class="eyebrow">Experiment history</p>
         <h2 id="recent-runs-title">Recent evaluation runs</h2>
       </div>
-      <code>python -m evalbench.cli run</code>
+      <code class="command">{{ icon("terminal", 14) }}python -m evalbench.cli run</code>
+    </div>
+
+    <div class="run-canvas glass" data-run-canvas>
+      {% if runs %}
+        <p class="canvas-hint" id="run-canvas-hint">Arrow keys move between runs.</p>
+        <ol class="run-grid" aria-describedby="run-canvas-hint">
+          {% for run in runs %}
+            {% set t = tone(run) %}
+            <li class="run-node glass glass-interactive" data-run-node>
+              <a class="run-node-link" href="{{ url_for('web.run_detail', run_id=run.id) }}">
+                <span class="run-node-head">
+                  {{ icon("dataset", 16) }}
+                  <span class="run-node-id">{{ run.id[:8] }}</span>
+                  <span class="run-node-split">{{ run.dataset_split | replace('_', ' ') | title }}</span>
+                </span>
+                <span class="run-node-meta">{{ run.dataset_name }} · {{ run.dataset_version }}</span>
+                <span class="run-node-meta">{{ run.prompt_id }} · {{ run.prompt_version }}</span>
+                <span class="node-status tone-{{ t }}">
+                  {{ icon("check" if t == "ok" else "fail" if t == "fail" else "partial", 14) }}
+                  <span class="visually-hidden">Status </span>{{ run.status | title }} · {{ run.passed_examples }}/{{ run.total_examples }} passing
+                </span>
+                <span class="run-node-foot">
+                  <span class="run-node-date"><span class="visually-hidden">Created </span>{{ run.created_at.strftime("%Y-%m-%d %H:%M") }}</span>
+                  <span class="run-node-rate tone-{{ t }}"><span class="visually-hidden">Pass rate </span>{{ "%.0f%%"|format(run.pass_rate * 100) }}</span>
+                </span>
+              </a>
+            </li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <div class="run-empty">
+          <h3>No runs yet</h3>
+          <p>Run the offline benchmark from the CLI. Results will appear here.</p>
+          <code class="command">{{ icon("terminal", 14) }}python -m evalbench.cli run</code>
+        </div>
+      {% endif %}
     </div>
 
     {% if runs %}
-      <div class="run-album" data-run-album>
-        <p class="album-hint" id="album-hint">Touch or point at a plate to tilt it toward your contact. Press to sink the plate, then open the run. Arrow keys move between plates.</p>
-        <div class="album-stage" role="list" aria-describedby="album-hint">
-          {% for run in runs %}
-            <article
-              class="album-plate"
-              role="listitem"
-              data-album-plate
-              style="--plate-index: {{ loop.index0 }}; --plate-count: {{ runs|length }};"
-            >
-              <a class="album-plate-link" href="{{ url_for('web.run_detail', run_id=run.id) }}">
-                <span class="plate-index" aria-hidden="true">{{ "%02d"|format(loop.index) }}</span>
-                <span class="plate-kicker">{{ run.dataset_split | replace('_', ' ') | title }}</span>
-                <span class="plate-id">{{ run.id[:8] }}</span>
-                <span class="plate-meta">{{ run.dataset_name }} · {{ run.dataset_version }}</span>
-                <span class="plate-meta">{{ run.prompt_id }} · {{ run.prompt_version }}</span>
-                <span class="plate-foot">
-                  <span class="status status-{{ run.status }}">{{ run.status }}</span>
-                  <span class="plate-rate"><span class="visually-hidden">Pass rate </span><strong>{{ "%.0f%%"|format(run.pass_rate * 100) }}</strong></span>
-                </span>
-                <span class="plate-date"><span class="visually-hidden">Created </span>{{ run.created_at.strftime("%Y-%m-%d %H:%M") }}</span>
-              </a>
-            </article>
-          {% endfor %}
-        </div>
-      </div>
       <h3 class="ledger-title" id="run-ledger-title">Run ledger</h3>
       <div class="table-wrap run-ledger" role="region" aria-labelledby="run-ledger-title">
         <table>
@@ -89,23 +160,10 @@
           </tbody>
         </table>
       </div>
-    {% else %}
-      <div class="run-album" data-run-album>
-        <p class="album-hint" id="album-hint">Touch or point at the plate to tilt it. Recorded runs stand here as holographic plates.</p>
-        <div class="album-stage" aria-describedby="album-hint">
-          <div class="album-plate album-plate-empty" data-album-plate style="--plate-index: 0; --plate-count: 1;">
-            <div class="album-plate-face">
-              <h3>No runs yet</h3>
-              <p>Run the offline benchmark from the CLI. Results will appear here.</p>
-              <code>python -m evalbench.cli run</code>
-            </div>
-          </div>
-        </div>
-      </div>
     {% endif %}
   </section>
 {% endblock %}
 
 {% block scripts %}
-  <script src="{{ url_for('static', filename='js/album.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/run-canvas.js') }}" defer></script>
 {% endblock %}

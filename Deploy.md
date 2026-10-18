@@ -1,6 +1,6 @@
 # EvalBench Deployment Guide
 
-> **Status: approved on August 15, 2026; not yet deployed.** Commands marked **Future command** describe the intended deployment contract and must be verified against the implemented application before use.
+> **Status: deployment files implemented; not yet deployed.** The Docker image, `render.yaml` Blueprint, idempotent `demo-seed` command, read-only guard, and container smoke test exist and run in CI. No Render service has been created yet, so the release checks in Sections 8 and 13 remain open.
 
 ## 1. Purpose
 
@@ -41,21 +41,21 @@ DEMO_READ_ONLY=true
 
 This separation is important because a public evaluation endpoint could otherwise become an unauthenticated proxy for paid model calls.
 
-## 3. Expected Deployment Files
-
-These files will be created during the approved implementation phases:
+## 3. Deployment Files
 
 | File | Responsibility |
 |---|---|
-| `pyproject.toml` | Python version, runtime dependencies, and developer tools. |
+| `requirements.txt` | Runtime dependencies installed into the image. |
 | `.env.example` | Documented environment-variable names with no secrets. |
-| `Dockerfile` | Reproducible production image. |
-| `.dockerignore` | Excludes local databases, caches, secrets, and development artifacts. |
-| `render.yaml` | Render Blueprint containing build, start, health-check, and environment settings. |
-| `compose.yaml` | Optional local multi-service environment. |
-| `app/__init__.py` | Flask application factory. |
-| `evalbench/bootstrap_demo.py` | Idempotent migration and demo-data initialization. |
-| `tests/deployment/` | Container and health-endpoint smoke tests. |
+| `Dockerfile` | Production image: non-root user, demo defaults, seed then Gunicorn on `$PORT`. |
+| `.dockerignore` | Excludes local databases, caches, secrets, reports, and editor/agent folders. |
+| `render.yaml` | Render Blueprint: free Docker web service, `/health/ready` check, generated `SECRET_KEY`. |
+| `evalbench/__init__.py` | Flask application factory, `create_app()`. |
+| `evalbench/demo.py` | Idempotent demo seed and the featured regression pair. |
+| `evalbench/security.py` | Read-only write guard and baseline security headers. |
+| `scripts/smoke_demo.sh` | HTTP smoke test for any running demo, local or on Render. |
+| `.github/workflows/container.yml` | Builds the image, starts it, and runs the smoke test in CI. |
+| `tests/test_demo.py` | Offline tests for seeding, readiness, the guard, and the home-page link. |
 
 This guide must be updated if implementation changes any of these names.
 
@@ -133,44 +133,48 @@ INNGEST_DEV=1 python -m evalbench.cli queue \
   --correlation-id <CORRELATION_ID>
 ```
 
-### Native Python workflow
+### Native Python demo
 
-**Future commands:**
+This reproduces the public demo without Docker. It uses a throwaway SQLite file
+so it never touches the database configured in `.env`:
 
 ```bash
-python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e '.[dev]'
-cp .env.example .env
-pytest
-python -m evalbench.cli demo seed
-flask --app 'app:create_app()' run --debug
+export DATABASE_URL=sqlite:///demo.db LLM_PROVIDER=mock  # instance/demo.db
+python -m evalbench.cli demo-seed
+APP_ENV=production DEMO_READ_ONLY=true SECRET_KEY="$(openssl rand -hex 32)" \
+  gunicorn --bind 127.0.0.1:8000 'evalbench:create_app()'
 ```
+
+`demo-seed` refuses to run unless `LLM_PROVIDER=mock`. Running it again reports
+every run as `exists` instead of creating duplicates, because each seeded run
+uses a correlation ID derived from its dataset and prompt hashes.
 
 ### Container workflow
 
-**Future commands:**
+The `Container smoke test` workflow builds and checks the image on every
+relevant pull request. To repeat it on a machine with Docker:
 
 ```bash
 docker build -t evalbench:local .
-docker run --rm -p 8000:8000 --env-file .env evalbench:local
+docker run --rm -p 8000:10000 -e PORT=10000 \
+  -e SECRET_KEY="$(openssl rand -hex 32)" evalbench:local
 ```
+
+Do not pass `--env-file .env`; the local `.env` may point at a hosted database
+or contain a provider key, and the demo needs neither.
 
 ### Required smoke checks
 
 In another terminal:
 
 ```bash
-curl --fail http://localhost:8000/health
-curl --fail http://localhost:8000/health/ready
+scripts/smoke_demo.sh http://127.0.0.1:8000
 ```
 
-Expected liveness response:
-
-```json
-{"status":"ok"}
-```
+The script checks liveness, demo-aware readiness, security headers, the
+home-page link to the featured regression, the regression report itself, and
+that a `POST` is rejected with `403`.
 
 Before deployment, also verify:
 
@@ -184,13 +188,16 @@ Before deployment, also verify:
 
 ## 6. Production Process Contract
 
-The web service will run Flask behind Gunicorn. The exact module path will be confirmed during implementation.
-
-**Proposed future start command:**
+The web service runs Flask behind Gunicorn. The image's start command is:
 
 ```bash
-python -m evalbench.bootstrap_demo && gunicorn 'app:create_app()' --bind 0.0.0.0:${PORT:-8000} --workers 2 --threads 4 --timeout 120
+python -m evalbench.cli demo-seed && exec gunicorn --bind 0.0.0.0:${PORT} --threads 4 --timeout 120 --access-logfile - 'evalbench:create_app()'
 ```
+
+Gunicorn reads its worker count from `WEB_CONCURRENCY`: the image defaults to
+`2`, and `render.yaml` sets `1` for the free plan's 0.1 CPU and 512 MB. If the
+seed fails, the container exits before Gunicorn starts, so Render never routes
+traffic to an empty demo.
 
 Why Gunicorn is needed:
 
@@ -220,6 +227,17 @@ This is a **readiness** endpoint. It answers whether the application is ready to
 
 It may verify only essential dependencies, such as a fast database query and the presence of seeded demo data. It must return a non-success status when the app cannot serve its primary experience.
 
+Implemented behavior: readiness always checks the database. When
+`DEMO_READ_ONLY=true` it also requires every seeded demo run and returns `503`
+with `"demo_data": "missing"` until they exist.
+
+### Read-only guard
+
+In demo mode, a `before_request` hook rejects every method other than `GET`,
+`HEAD`, and `OPTIONS` with `403` before routing, including unknown paths and
+`/api/inngest`. New write endpoints are therefore blocked by default rather than
+by remembering to decorate them.
+
 ### Important Flask clarification
 
 Declaring `/health` before other route functions does not automatically bypass authentication or rate-limiting middleware. The application will explicitly allow the health blueprint or endpoint in those policies. This makes the behavior testable rather than dependent on source-file order.
@@ -239,53 +257,34 @@ Do not perform these steps until the implementation, tests, and project plan are
 3. Push the approved repository to GitHub.
 4. Choose a stable release commit for deployment.
 
-### Step 2: Validate `render.yaml`
+### Step 2: Review `render.yaml`
 
-The future Blueprint should express approximately this contract:
-
-```yaml
-services:
-  - type: web
-    name: evalbench
-    runtime: python
-    plan: free
-    buildCommand: pip install .
-    startCommand: python -m evalbench.bootstrap_demo && gunicorn 'app:create_app()' --bind 0.0.0.0:$PORT
-    healthCheckPath: /health/ready
-    envVars:
-      - key: APP_ENV
-        value: production
-      - key: DEMO_READ_ONLY
-        value: "true"
-      - key: LLM_PROVIDER
-        value: replay
-      - key: MAX_RUN_COST_USD
-        value: "0"
-      - key: SECRET_KEY
-        generateValue: true
-```
-
-This is a design preview, not a file to deploy yet. Its syntax and commands must be tested after the application exists.
+The repository's [`render.yaml`](render.yaml) defines one free Docker web
+service, `evalbench-demo`, that builds the same `Dockerfile` CI smoke-tests. It
+sets `APP_ENV=production`, `DEMO_READ_ONLY=true`, `LLM_PROVIDER=mock`,
+`MAX_RUN_COST_USD=0`, and `WEB_CONCURRENCY=1`; Render generates `SECRET_KEY`.
+`autoDeployTrigger: checksPass` deploys a new commit only after its GitHub
+checks pass. It declares no database, disk, or provider key: the container seeds
+its own SQLite file on every start.
 
 ### Step 3: Create the Render service
 
-1. Sign in to Render and create a new Blueprint or Web Service from the GitHub repository.
-2. Confirm the free instance choice is appropriate for a portfolio demonstration.
-3. Review every environment variable before the first deployment.
-4. Do not add an LLM API key to the public demo.
-5. Confirm `/health/ready` is configured as the Render health-check path.
-6. Deploy the selected commit.
+1. In the Render Dashboard choose **New > Blueprint** and connect the GitHub repository.
+2. Confirm the plan shows **Free** and the service name `evalbench-demo`.
+3. Review every environment variable before the first deployment; none should be a provider key.
+4. Confirm the health-check path is `/health/ready`.
+5. Deploy and wait for the first deploy to report **Live**.
 
 ### Step 4: Verify the release
 
 Replace `<service-name>` with the actual Render service name:
 
 ```bash
-curl --fail https://<service-name>.onrender.com/health
-curl --fail https://<service-name>.onrender.com/health/ready
+scripts/smoke_demo.sh https://<service-name>.onrender.com
 ```
 
-Then manually verify:
+The first request after inactivity may take close to a minute while the free
+instance starts. Then manually verify:
 
 - the homepage loads over HTTPS;
 - the seeded leaderboard and run comparison appear;
@@ -333,8 +332,8 @@ role before starting the runtime backend; runtime CLI commands do not create
 PostgreSQL tables. Public demos should use separate SELECT-only credentials.
 
 Switching the URL does not transfer SQLite history. Preserve existing data and
-plan any data transfer separately. This integration does not implement Docker,
-Render provisioning, or the future startup/seed commands above.
+plan any data transfer separately. The public demo image deliberately ignores
+this path and seeds a local SQLite file instead.
 
 The first public demo should favor reliability and cost control over hosted write capability.
 
@@ -367,7 +366,7 @@ Database migrations must be backward-compatible whenever a rollback may run olde
 
 Likely causes:
 
-- dependency missing from `pyproject.toml`;
+- dependency missing from `requirements.txt`;
 - unsupported Python version;
 - package requiring an unavailable system library; or
 - stale lock/constraint metadata.
@@ -401,9 +400,9 @@ Check production-only differences: environment variables, case-sensitive filenam
 - [ ] Project plan approved.
 - [ ] Phase-specific implementation complete.
 - [ ] Unit, integration, statistical, web, and deployment tests pass.
-- [ ] Production container smoke-tested.
-- [ ] Demo seed is deterministic and idempotent.
-- [ ] Public mode rejects all mutations and model calls.
+- [x] Production container smoke-tested (`Container smoke test` workflow).
+- [x] Demo seed is deterministic and idempotent (`tests/test_demo.py`).
+- [x] Public mode rejects all mutations and model calls (`tests/test_demo.py`).
 - [ ] Accessibility and responsive-layout checks completed.
 
 ### Security and cost
@@ -411,7 +410,7 @@ Check production-only differences: environment variables, case-sensitive filenam
 - [ ] No `.env`, API key, local database, or sensitive output is tracked.
 - [ ] `APP_ENV=production` and Flask debug mode is off.
 - [ ] `DEMO_READ_ONLY=true`.
-- [ ] `LLM_PROVIDER=replay` or `mock`.
+- [ ] `LLM_PROVIDER=mock`.
 - [ ] `MAX_RUN_COST_USD=0` for the public demo.
 - [ ] Secrets are configured only through Render's environment settings.
 
@@ -446,4 +445,4 @@ Deployment adds evidence that EvalBench is more than a notebook or local prototy
 
 Interview explanation:
 
-> I deployed the portfolio version in a read-only replay mode. Recruiters can inspect real evaluation results without exposing a paid model endpoint. I separated liveness from readiness, made demo seeding idempotent for ephemeral hosting, and documented cold-start monitoring as a tradeoff rather than claiming the free tier provides production uptime.
+> I deployed the portfolio version in a read-only seeded mode. Recruiters can inspect real evaluation results without exposing a paid model endpoint. I separated liveness from readiness, made demo seeding idempotent for ephemeral hosting, and documented cold-start monitoring as a tradeoff rather than claiming the free tier provides production uptime.

@@ -519,6 +519,19 @@ GitHub Actions run showing the annotation and uploaded report.
 
 **Done when:** A fresh visitor can load the demo, inspect a regression, and reproduce the smoke suite locally from the README.
 
+**Status:** Implemented, not yet complete. `python -m evalbench.cli demo-seed`
+stores the standard-tier development runs plus the known-bad automotive candidate
+idempotently and refuses any provider except `mock`. In `DEMO_READ_ONLY` mode a
+`before_request` guard rejects every non-safe method with `403` before routing,
+`/health/ready` requires the seeded runs, and every response carries baseline
+security headers. The home page links straight to the caught regression. The
+Docker image runs as a non-root user, binds Render's `PORT`, and seeds before
+Gunicorn starts; `render.yaml` describes a free Docker web service, and the
+`Container smoke test` workflow builds the image and runs
+`scripts/smoke_demo.sh` against it. The README reproduces the smoke gate and the
+demo from a fresh clone. Completion still needs a live Render deploy that passes
+`scripts/smoke_demo.sh`; README screenshots/GIF and measured resume notes remain.
+
 ### Optional depth after the portfolio release
 
 - Pairwise preference evaluation with Elo ratings.

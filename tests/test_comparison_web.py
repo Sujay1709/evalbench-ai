@@ -44,7 +44,7 @@ def test_dashboard_reports_evidence_and_remains_read_only(client, app, pair):
         assert text in response.data
     assert db.session.query(EvaluationRun).count() == 2
     assert not db.session.new and not db.session.dirty and not db.session.deleted
-    assert client.post("/compare", data=query(pair)).status_code == 405
+    assert client.post("/compare", data=query(pair)).status_code == 403
 
 
 def test_drilldown_escapes_provider_output(client, pair):

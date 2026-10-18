@@ -4,6 +4,7 @@ from flask import Blueprint, abort, render_template, request
 
 from evalbench.comparisons import ComparisonError, compare_runs, paired_bootstrap
 from evalbench.comparisons.efficiency import build_leaderboards, summarize_efficiency
+from evalbench.demo import featured_regression
 from evalbench.extensions import db
 from evalbench.judges.calibration import (
     CalibrationError,
@@ -34,7 +35,16 @@ def index():
     runs = db.session.execute(
         db.select(EvaluationRun).order_by(EvaluationRun.created_at.desc()).limit(8)
     ).scalars()
-    return render_template("index.html", runs=list(runs))
+    featured = None
+    if pair := featured_regression():
+        report = compare_runs(*pair)
+        featured = {
+            "baseline": pair[0],
+            "candidate": pair[1],
+            "newly_failing": report.newly_failing,
+            "examples": len(report.examples),
+        }
+    return render_template("index.html", runs=list(runs), featured=featured)
 
 
 @web_blueprint.get("/runs/<run_id>")
