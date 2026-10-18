@@ -27,6 +27,13 @@ from evalbench.datasets.schemas import (
     EvaluationSplit,
     ScorerSpec,
 )
+from evalbench.datasets.sensitivity import (
+    EvidenceFamily,
+    EvidenceFamilyError,
+    automotive_evidence_family,
+    evidence_family_hash,
+    load_evidence_family,
+)
 
 __all__ = [
     "BehavioralContract",
@@ -38,15 +45,20 @@ __all__ = [
     "DatasetSplitError",
     "EvaluationExample",
     "EvaluationSplit",
+    "EvidenceFamily",
+    "EvidenceFamilyError",
     "HuggingFaceDataset",
     "HuggingFaceImportError",
     "HuggingFaceImportResult",
     "HuggingFaceImportSpec",
     "LoadedDataset",
     "ScorerSpec",
+    "automotive_evidence_family",
     "build_behavioral_examples",
+    "evidence_family_hash",
     "deterministic_offsets",
     "import_huggingface_dataset",
+    "load_evidence_family",
     "load_jsonl",
     "summarize_behavioral_contracts",
     "validate_behavioral_contracts",

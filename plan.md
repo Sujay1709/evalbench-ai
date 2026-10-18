@@ -544,7 +544,7 @@ These are stretch goals, not prerequisites for shipping.
 
 ## 10.1 Research-backed feature slices
 
-The following commit sequence translates published evaluation methods into small, reviewable EvalBench experiments. Each slice must preserve offline tests and the development/holdout policy. Research documentation and behavioral contracts are implemented. Evidence sensitivity, the judge reliability passport, and confidence-budgeted sampling remain proposed.
+The following commit sequence translates published evaluation methods into small, reviewable EvalBench experiments. Each slice must preserve offline tests and the development/holdout policy. Research documentation, behavioral contracts, and causal evidence sensitivity are implemented. The judge reliability passport and confidence-budgeted sampling remain proposed.
 
 1. **Research documentation** — `docs: connect EvalBench roadmap to evaluation research`
    - Add primary-paper references and clearly separate paper-supported findings, EvalBench design inferences, and untested hypotheses.
@@ -563,6 +563,7 @@ The following commit sequence translates published evaluation methods into small
    - Record which evidence IDs changed and whether the expected behavior is answer preservation, answer revision, or abstention.
    - Add a deterministic sensitivity scorer and example-level evidence explaining every pass or failure.
    - Done when a deliberately evidence-insensitive mock system fails while an evidence-responsive fixture passes.
+   - **Status:** Implemented offline on the development family `datasets/automotive_qa/sensitivity_v1.json`. Each variant records its evidence ID, the IDs that changed, and the expected behavior. `score_evidence_sensitivity` explains every pass and failure. `evidence_insensitive_outputs` always repeats the supported answer and fails. `evidence_responsive_outputs` follows the evidence and passes. Exact match still scores a single string on its own. This is a scorer check, not a measured model result, and the family is not a holdout.
 
 4. **Judge reliability passport** — `feat: add calibrated judge reliability reports`
    - Introduce versioned rubrics and strict structured judge output.

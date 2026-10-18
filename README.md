@@ -33,6 +33,7 @@ EvalBench is designed around those questions. It emphasizes measurable behavior,
 | Provider abstraction | Offline mock plus an opt-in, contract-tested OpenAI Responses API adapter |
 | Deterministic scoring | Exact match, token F1, answerability, and JSON Schema with readable evidence |
 | Behavioral contracts | Automotive perturbation families report invariance violation and directional success from ordinary pass/fail bits; links stay inside one split |
+| Evidence sensitivity | A development question family fails an evidence-insensitive answer and passes an evidence-responsive fixture, with a written reason for every variant |
 | Reproducibility | Dataset hashes and versioned prompt/provider identities are stored per run; cache keys hash the exact prompt, provider, dataset subset, and example |
 | Response caching | Identical requests are served from a content-addressed SQLAlchemy cache |
 | Audit trail | Append-only run summaries, per-example results, and persisted correlation IDs |
@@ -667,11 +668,11 @@ EvalBench uses evaluation research as design input, not as evidence that a plann
 These concepts are **new to EvalBench and intentionally uncommon as a combined portfolio workflow**. They should not be described as globally unprecedented without a formal systematic literature and prior-art review.
 
 1. **Behavioral Contract Compiler:** implemented for the offline automotive fixture. Typed links record minimum-functionality, invariance, and directional relationships. Invariance violation rate and directional success rate are computed from ordinary pass/fail outcomes, so exact match, token F1, answerability, and schema scores stay in place. The checked-in family is [`datasets/automotive_qa/behavioral_v1.jsonl`](datasets/automotive_qa/behavioral_v1.jsonl). This is a deterministic contract test of fixture answers, not a measured model-robustness result.
-2. **Causal Evidence Sensitivity Lab:** evaluate the same automotive question with supported, evidence-removed, value-swapped, and contradictory contexts. Measure whether answers and abstentions change in the direction justified by the evidence rather than merely resembling a reference string.
+2. **Causal Evidence Sensitivity Lab:** implemented for one offline development question family, [`datasets/automotive_qa/sensitivity_v1.json`](datasets/automotive_qa/sensitivity_v1.json). The same question is scored with supported, evidence-removed, value-swapped, and contradictory contexts. Each variant records the evidence IDs that changed and whether the expected behavior is answer preservation, answer revision, or abstention. The sensitivity scorer explains every pass or failure. A system that always repeats the supported answer fails, including when exact match would still accept that answer on the supported variant. A fixture that follows the evidence passes. This checks the scorer. It is not a measured model result.
 3. **Judge Reliability Passport:** generate a versioned report for each judge model and rubric containing human agreement, repeated-run consistency, order-flip rate, verbosity sensitivity, confusion matrices, and known unsupported slices. A judge cannot participate in a regression gate until its passport meets documented thresholds.
 4. **Confidence-Budgeted Regression Sampler:** begin with deterministic and historically fragile slices, then spend paid model calls only while the paired regression interval remains inconclusive. Always enforce minimum coverage per tag and compare the adaptive decision with a full-suite audit before claiming cost savings.
 
-The implementation order and commit boundaries for these experiments are recorded in `plan.md`. The behavioral contract compiler is covered by offline tests. The evidence-sensitivity lab, judge passport, and confidence-budgeted sampler stay out of the verified-capabilities list until their own tests pass.
+The implementation order and commit boundaries for these experiments are recorded in `plan.md`. The behavioral contract compiler and the evidence-sensitivity lab are covered by offline tests. The judge passport and confidence-budgeted sampler stay out of the verified-capabilities list until their own tests pass.
 
 ## Deployment status
 
