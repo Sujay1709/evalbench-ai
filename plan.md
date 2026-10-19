@@ -1,6 +1,6 @@
 # EvalBench Project Plan
 
-> **Status: approved on August 15, 2026. Phases 0-4 are complete, including Phase 4 browser acceptance on September 21, 2026. The Supabase infrastructure interlude is complete. Phase 5's offline implementation is complete; its representative-holdout reliability claim remains open. Phase 6's regression gate is accepted: the October 18, 2026 GitHub Actions run shows the known-bad annotation and the uploaded report. Phase 7's public demo is implemented; a live Render deploy, screenshots, and measured resume notes remain.** Each phase must satisfy its tests and completion criteria before the next phase begins.
+> **Status: approved on August 15, 2026. Phases 0-4 are complete, including Phase 4 browser acceptance on September 21, 2026. The Supabase infrastructure interlude is complete. Phase 5's offline implementation is complete; its representative-holdout reliability claim remains open. Phase 6's regression gate is accepted: the October 18, 2026 GitHub Actions run shows the known-bad annotation and the uploaded report. Phase 7's public demo is implemented. Screenshots and measured notes are in `docs/phase-7-portfolio.md`. A live Render deploy that passes `scripts/smoke_demo.sh` remains.** Each phase must satisfy its tests and completion criteria before the next phase begins.
 
 ## 1. Concept
 
@@ -538,8 +538,10 @@ Docker image runs as a non-root user, binds Render's `PORT`, and seeds before
 Gunicorn starts; `render.yaml` describes a free Docker web service, and the
 `Container smoke test` workflow builds the image and runs
 `scripts/smoke_demo.sh` against it. The README reproduces the smoke gate and the
-demo from a fresh clone. Completion still needs a live Render deploy that passes
-`scripts/smoke_demo.sh`; README screenshots/GIF and measured resume notes remain.
+demo from a fresh clone. Screenshots of that local demo, and the measured
+recruiter, resume, and technical notes, are in `docs/phase-7-portfolio.md`.
+Completion still needs a live Render deploy that passes `scripts/smoke_demo.sh`.
+A motion GIF was not recorded.
 
 ### Optional depth after the portfolio release
 
