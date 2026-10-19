@@ -12,7 +12,7 @@ Build EvalBench as a portfolio-quality, reproducible LLM evaluation and regressi
 - The secure Supabase/PostgreSQL infrastructure interlude merged in PR #21; SQLite remains the offline default. No hosted provisioning or data transfer is implicit.
 - Phase 5 has advisory judge contracts, opt-in single-result execution, blind local human labels, and an optional loopback-only Kev decision adapter; agreement calibration and any model-based release decision remain unimplemented.
 - Phase 6's regression gate is accepted. [Run 39176061699](https://github.com/Sujay1709/evalbench-ai/actions/runs/39176061699) showed the known-bad annotations and uploaded the report. Baselines are mock-only; re-record them only for intended behavior changes and review the diff.
-- Phase 7's read-only demo is implemented (`evalbench/demo.py`, `evalbench/security.py`, `Dockerfile`, `render.yaml`, `.github/workflows/container.yml`); completion needs a live Render deploy passing `scripts/smoke_demo.sh`. The demo seed must stay mock-only and idempotent.
+- Phase 7's read-only demo is implemented (`evalbench/demo.py`, `evalbench/security.py`, `Dockerfile`, `render.yaml`, `.github/workflows/container.yml`). Measured notes and screenshots are in `docs/phase-7-portfolio.md`. Completion needs a live Render deploy passing `scripts/smoke_demo.sh`. The demo seed must stay mock-only and idempotent.
 - React/Vite and shadcn are approved as a separate frontend migration after Phase 5 rubric/output contracts, before annotation UX. Preserve Jinja until tested feature parity; do not initialize shadcn at the Flask root.
 - Keep all automated tests offline. Do not add LlamaIndex or LangSmith tracing until their planned slice.
 

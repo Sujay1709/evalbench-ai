@@ -417,6 +417,14 @@ scripts/smoke_demo.sh http://127.0.0.1:8000
   where that candidate turns three passing automotive answers into failures.
 - In read-only mode every `POST`, `PUT`, `PATCH`, and `DELETE` returns `403`.
 
+The October 18, 2026 local run of these commands is written up in
+[docs/phase-7-portfolio.md](docs/phase-7-portfolio.md). The numbers there are
+the mock provider and the fixture datasets. They are not a live-model benchmark.
+
+![EvalBench home page, with the caught-regression card and the five seeded runs](docs/images/demo-home.png)
+
+![Automotive baseline compared with the known-bad prompt: mean delta -1.000, three regressions, and $0 generation cost](docs/images/demo-regression.png)
+
 The [`Dockerfile`](Dockerfile) runs the same seed before Gunicorn, and the
 `Container smoke test` workflow builds it and runs `scripts/smoke_demo.sh`
 against the container. [`render.yaml`](render.yaml) describes the Render
@@ -713,7 +721,7 @@ The deploy status is intentionally explicit: a Dockerfile or deployment document
 - [x] **Infrastructure interlude:** secure Supabase/PostgreSQL integration merged in PR #21; hosted smoke verification remains operator-run
 - [x] **Phase 5 implementation:** [versioned rubric and opt-in judge execution](docs/judge-contracts.md), [blind human labels](docs/human-labels.md), optional local Kev evidence, split-safe agreement reporting, repeated-score summaries, pairwise order-swap display, adversarial automotive fixtures, and a configurable holdout readiness check. Browser-side annotation remains deferred until authentication/CSRF support exists. The reliability claim is still open. An October 13, 2026 local SQLite session stored three assisted holdout labels (both SQuAD v2 sample holdout rows and one of two HotpotQA sample holdout rows) with no paired judge attempts. The workbench default minimum is 10 labeled results.
 - [x] **Phase 6:** [regression gate](docs/regression-gate.md) accepted on October 18, 2026. [Run 39176061699](https://github.com/Sujay1709/evalbench-ai/actions/runs/39176061699) passed the standard tier, showed `::error` annotations for the known-bad automotive prompt (`auto-001`, `auto-002`, `auto-003`, mean delta -1.000), and uploaded `regression-gate-reports`. Baselines remain mock-only.
-- [ ] **Phase 7:** read-only seeded demo, demo-aware readiness, security headers, a featured-regression entry point, a non-root Docker image, `render.yaml`, and a container smoke test in CI are implemented. Completion still needs a live Render deploy that passes `scripts/smoke_demo.sh`.
+- [ ] **Phase 7:** read-only seeded demo, demo-aware readiness, security headers, a featured-regression entry point, a non-root Docker image, `render.yaml`, and a container smoke test in CI are implemented. [Measured notes and screenshots](docs/phase-7-portfolio.md) record the October 18, 2026 local mock demo. Completion still needs a live Render deploy that passes `scripts/smoke_demo.sh`.
 
 See [`plan.md`](plan.md) for completion criteria and [`Deploy.md`](Deploy.md) for the deployment design.
 
@@ -722,7 +730,7 @@ See [`plan.md`](plan.md) for completion criteria and [`Deploy.md`](Deploy.md) fo
 - The default provider is deterministic and offline; the OpenAI adapter is contract-tested but has not yet been credentialed smoke-tested.
 - The repository contains five automotive fixtures and eight external sample fixtures, which are appropriate for infrastructure verification but too small for model selection.
 - Exact match, token F1, answerability, and JSON Schema are implemented; retrieval and citation metrics remain planned.
-- Docker and Render execution have not yet been smoke-tested.
+- The Docker image is smoke-tested in GitHub Actions ([container run 39175853230](https://github.com/Sujay1709/evalbench-ai/actions/runs/39175853230)). A live Render service has not been created, so no public URL has passed `scripts/smoke_demo.sh`.
 - Regression baselines exist only for the offline mock provider, so the gate catches prompt and pipeline regressions, not live-model drift. With two or three examples per benchmark, the newly-failing check does most of the work; the interval rarely excludes zero at this size.
 - Comparison, cost-reporting, and calibration-report mechanics are verified offline; no live-model performance benchmark or generalizable human-calibrated judge claim is made yet. The October 13, 2026 labels are a local workflow check on three fixture rows, stored only in the operator's SQLite database.
 
@@ -730,4 +738,4 @@ These are roadmap boundaries, not hidden caveats. Each one maps to a testable mi
 
 ## Engineering story
 
-EvalBench demonstrates more than API integration: it shows dataset design, experiment reproducibility, provider abstraction, deterministic testing, persistence, caching, observability, and production-aware deployment planning. The strongest interview discussion is the decision to validate the evaluation harness offline first, then add model-judgment evidence behind explicit human calibration, uncertainty, and disagreement review rather than treating an LLM score as ground truth.
+EvalBench demonstrates more than API integration: it shows dataset design, experiment reproducibility, provider abstraction, deterministic testing, persistence, caching, observability, and production-aware deployment planning. The strongest interview discussion is the decision to validate the evaluation harness offline first, then add model-judgment evidence behind explicit human calibration, uncertainty, and disagreement review rather than treating an LLM score as ground truth. The measured recruiter, resume, and technical lines for the seeded demo are in [docs/phase-7-portfolio.md](docs/phase-7-portfolio.md).
