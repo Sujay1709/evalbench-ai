@@ -58,6 +58,13 @@ class Settings(BaseSettings):
             raise ValueError("Configure both OpenAI input and output prices, or neither")
         if self.app_env == "production" and self.secret_key == "development-only-secret":
             raise ValueError("Production requires a non-default SECRET_KEY")
+        if self.app_env == "production" and self.demo_read_only:
+            if self.llm_provider != "mock":
+                raise ValueError(
+                    "The public demo requires LLM_PROVIDER=mock so it cannot call a paid model"
+                )
+            if self.max_run_cost_usd != 0:
+                raise ValueError("The public demo requires MAX_RUN_COST_USD=0")
         if self.llm_provider == "openai" and (
             self.openai_api_key is None or not self.openai_api_key.get_secret_value().strip()
         ):

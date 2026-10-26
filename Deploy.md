@@ -1,6 +1,6 @@
 # EvalBench Deployment Guide
 
-> **Status: deployment files implemented; not yet deployed.** The Docker image, `render.yaml` Blueprint, idempotent `demo-seed` command, read-only guard, and container smoke test exist and run in CI. No Render service has been created yet, so the release checks in Sections 8 and 13 remain open.
+> **Status: deployment files implemented; not yet deployed.** The Docker image, `render.yaml` Blueprint, idempotent `demo-seed` command, read-only guard, and container smoke test exist and run in CI. A production read-only process now refuses to boot unless `LLM_PROVIDER=mock` and `MAX_RUN_COST_USD=0`, and it trusts one Render proxy hop. No Render service has been created yet, so the release checks in Sections 8 and 13 remain open.
 
 ## 1. Purpose
 
@@ -89,6 +89,7 @@ Rules:
 - Never include Inngest keys, LLM keys, or sensitive dataset content in workflow events.
 - The application must fail closed if `DEMO_READ_ONLY=true` but a mutation endpoint is called.
 - Production configuration must reject debug mode.
+- A production read-only demo must refuse to boot when `LLM_PROVIDER` is anything other than `mock` or when `MAX_RUN_COST_USD` is not `0`. That is the public demo, and it must not be able to call a paid model.
 
 ## 5. Local Pre-deployment Checks
 
@@ -142,7 +143,8 @@ so it never touches the database configured in `.env`:
 source .venv/bin/activate
 export DATABASE_URL=sqlite:///demo.db LLM_PROVIDER=mock  # instance/demo.db
 python -m evalbench.cli demo-seed
-APP_ENV=production DEMO_READ_ONLY=true SECRET_KEY="$(openssl rand -hex 32)" \
+APP_ENV=production DEMO_READ_ONLY=true MAX_RUN_COST_USD=0 \
+  SECRET_KEY="$(openssl rand -hex 32)" \
   gunicorn --bind 127.0.0.1:8000 'evalbench:create_app()'
 ```
 
@@ -410,8 +412,8 @@ Check production-only differences: environment variables, case-sensitive filenam
 - [ ] No `.env`, API key, local database, or sensitive output is tracked.
 - [ ] `APP_ENV=production` and Flask debug mode is off.
 - [ ] `DEMO_READ_ONLY=true`.
-- [ ] `LLM_PROVIDER=mock`.
-- [ ] `MAX_RUN_COST_USD=0` for the public demo.
+- [x] `LLM_PROVIDER=mock`. A production read-only process refuses to boot otherwise.
+- [x] `MAX_RUN_COST_USD=0` for the public demo. A production read-only process refuses to boot otherwise.
 - [ ] Secrets are configured only through Render's environment settings.
 
 ### Render

@@ -200,11 +200,54 @@ def test_read_only_production_demo_does_not_require_inngest_keys():
         app_env="production",
         secret_key="production-secret",
         demo_read_only=True,
+        llm_provider="mock",
+        max_run_cost_usd=0,
         inngest_event_key=None,
         inngest_signing_key=None,
     )
 
     assert settings.demo_read_only is True
+    assert settings.max_run_cost_usd == 0
+
+
+def test_public_demo_refuses_a_paid_provider():
+    with pytest.raises(ValidationError, match="LLM_PROVIDER=mock"):
+        Settings(
+            _env_file=None,
+            app_env="production",
+            secret_key="production-secret",
+            demo_read_only=True,
+            llm_provider="openai",
+            openai_api_key="sk-test",
+            max_run_cost_usd=0,
+        )
+
+
+def test_public_demo_refuses_a_nonzero_cost_budget():
+    with pytest.raises(ValidationError, match="MAX_RUN_COST_USD=0"):
+        Settings(
+            _env_file=None,
+            app_env="production",
+            secret_key="production-secret",
+            demo_read_only=True,
+            llm_provider="mock",
+            max_run_cost_usd=1,
+        )
+
+
+def test_full_production_mode_can_still_use_a_paid_provider():
+    settings = Settings(
+        _env_file=None,
+        app_env="production",
+        secret_key="production-secret",
+        demo_read_only=False,
+        llm_provider="openai",
+        openai_api_key="sk-test",
+        max_run_cost_usd=1,
+        inngest_signing_key="signkey-test",
+    )
+
+    assert settings.llm_provider == "openai"
 
 
 def test_inngest_secrets_are_not_copied_into_flask_config():

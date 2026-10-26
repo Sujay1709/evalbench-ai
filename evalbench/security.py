@@ -1,11 +1,18 @@
 """Request guards that hold for every route, including ones added later."""
 
 from flask import Flask, jsonify, request
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
 def init_security(app: Flask) -> None:
+    if app.config.get("APP_ENV") == "production":
+        # Render terminates TLS and is the one proxy in front of the container.
+        # Trust that hop so request.scheme follows X-Forwarded-Proto. Development
+        # leaves the header ignored, so a local client cannot spoof the scheme.
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
     @app.before_request
     def reject_writes_in_read_only_demo():
         # Fails closed before routing, so a future write route cannot bypass demo mode.

@@ -398,7 +398,8 @@ source .venv/bin/activate
 python -m evalbench.cli gate --tier smoke
 export DATABASE_URL=sqlite:///demo.db LLM_PROVIDER=mock  # instance/demo.db
 python -m evalbench.cli demo-seed
-APP_ENV=production DEMO_READ_ONLY=true SECRET_KEY="$(openssl rand -hex 32)" \
+APP_ENV=production DEMO_READ_ONLY=true MAX_RUN_COST_USD=0 \
+  SECRET_KEY="$(openssl rand -hex 32)" \
   gunicorn --bind 127.0.0.1:8000 'evalbench:create_app()'
 ```
 
@@ -416,6 +417,9 @@ scripts/smoke_demo.sh http://127.0.0.1:8000
 - The home page's **Inspect a caught regression** link opens the comparison
   where that candidate turns three passing automotive answers into failures.
 - In read-only mode every `POST`, `PUT`, `PATCH`, and `DELETE` returns `403`.
+- A production read-only process refuses to start unless `LLM_PROVIDER=mock` and
+  `MAX_RUN_COST_USD=0`. Behind Render it trusts one proxy hop, so HTTPS from
+  `X-Forwarded-Proto` is the request scheme. Development ignores that header.
 
 The October 18, 2026 local run of these commands is written up in
 [docs/phase-7-portfolio.md](docs/phase-7-portfolio.md). The numbers there are

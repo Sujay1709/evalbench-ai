@@ -540,8 +540,10 @@ Gunicorn starts; `render.yaml` describes a free Docker web service, and the
 `scripts/smoke_demo.sh` against it. The README reproduces the smoke gate and the
 demo from a fresh clone. Screenshots of that local demo, and the measured
 recruiter, resume, and technical notes, are in `docs/phase-7-portfolio.md`.
-Completion still needs a live Render deploy that passes `scripts/smoke_demo.sh`.
-A motion GIF was not recorded.
+The production read-only process refuses to boot unless `LLM_PROVIDER=mock` and
+`MAX_RUN_COST_USD=0`, and in production it trusts one proxy hop so Render's
+`X-Forwarded-Proto` becomes the request scheme. Completion still needs a live
+Render deploy that passes `scripts/smoke_demo.sh`. A motion GIF was not recorded.
 
 ### Optional depth after the portfolio release
 

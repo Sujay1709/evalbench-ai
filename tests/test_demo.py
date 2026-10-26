@@ -2,10 +2,13 @@
 
 import html
 import re
+from pathlib import Path
 
 import pytest
+from flask import jsonify, request
 from typer.testing import CliRunner
 
+from evalbench import create_app
 from evalbench.cli import cli
 from evalbench.demo import (
     REGRESSED_KEY,
@@ -160,3 +163,96 @@ def test_demo_seed_cli_reports_an_unopenable_database_without_a_traceback(tmp_pa
     assert result.exit_code == 1
     assert "Demo seed failed" in result.output
     assert "Traceback" not in result.output
+
+
+def _proxy_probe(app):
+    @app.get("/_proxy-probe")
+    def _proxy_probe_route():
+        return jsonify(scheme=request.scheme, remote=request.remote_addr)
+
+
+def test_production_trusts_one_render_proxy_hop(tmp_path):
+    app = create_app(
+        {
+            "TESTING": True,
+            "APP_ENV": "production",
+            "DEMO_READ_ONLY": True,
+            "SECRET_KEY": "production-secret",
+            "SQLALCHEMY_DATABASE_URI": f"sqlite:///{tmp_path / 'proxy.db'}",
+        }
+    )
+    _proxy_probe(app)
+
+    seen = app.test_client().get(
+        "/_proxy-probe",
+        headers={
+            "X-Forwarded-Proto": "http, https",
+            "X-Forwarded-For": "198.51.100.9, 203.0.113.8",
+        },
+    )
+
+    assert seen.status_code == 200
+    assert seen.get_json() == {"scheme": "https", "remote": "203.0.113.8"}
+
+
+def test_development_ignores_forwarded_proto(tmp_path):
+    app = create_app(
+        {
+            "TESTING": True,
+            "APP_ENV": "development",
+            "SECRET_KEY": "test-secret",
+            "SQLALCHEMY_DATABASE_URI": f"sqlite:///{tmp_path / 'local.db'}",
+        }
+    )
+    _proxy_probe(app)
+
+    seen = app.test_client().get(
+        "/_proxy-probe",
+        headers={"X-Forwarded-Proto": "https", "X-Forwarded-For": "203.0.113.8"},
+    )
+
+    assert seen.get_json()["scheme"] == "http"
+    assert seen.get_json()["remote"] != "203.0.113.8"
+
+
+def test_deploy_files_keep_the_public_demo_offline():
+    root = Path(__file__).resolve().parents[1]
+    blueprint = (root / "render.yaml").read_text()
+    image = (root / "Dockerfile").read_text()
+
+    assert "healthCheckPath: /health/ready" in blueprint
+    assert "plan: free" in blueprint
+    env = _render_env(blueprint)
+    assert "OPENAI_API_KEY" not in env
+    assert env == {
+        "APP_ENV": "production",
+        "DEMO_READ_ONLY": "true",
+        "LLM_PROVIDER": "mock",
+        "MAX_RUN_COST_USD": "0",
+        "LOG_LEVEL": "INFO",
+        "WEB_CONCURRENCY": "1",
+        "SECRET_KEY": "generateValue",
+    }
+    for required in (
+        "APP_ENV=production",
+        "DEMO_READ_ONLY=true",
+        "LLM_PROVIDER=mock",
+        "MAX_RUN_COST_USD=0",
+    ):
+        assert required in image
+
+
+def _render_env(text: str) -> dict[str, str]:
+    values: dict[str, str] = {}
+    key = None
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("- key:"):
+            key = stripped.split(":", 1)[1].strip()
+        elif key and stripped.startswith("value:"):
+            values[key] = stripped.split(":", 1)[1].strip().strip('"')
+            key = None
+        elif key and stripped.startswith("generateValue:"):
+            values[key] = "generateValue"
+            key = None
+    return values
