@@ -4,8 +4,36 @@
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-3.x-000000?logo=flask&logoColor=white)
-![Phase](https://img.shields.io/badge/status-Phase%205%20active-2E8B57)
+![Status](https://img.shields.io/badge/status-CI%20gate%20accepted-2E8B57)
 ![Operation](https://img.shields.io/badge/tests-offline%20%26%20deterministic-F59E0B)
+
+## Real-world problem
+
+A customer-facing assistant fails on a particular question. It skips the passage that contains the answer, states a number the source does not support, or refuses when the manual has the fact. That shows up after a prompt edit, a model swap, or a retrieval change that looked fine in a chat window. A handful of successful demos leaves the release questions unanswered: did the fixed test set get better, which examples broke, and is the difference larger than noise?
+
+EvalBench is the check that runs before that change ships. Questions, prompts, and scoring rules are versioned and content-hashed. Every run is append-only and keeps the per-example evidence. A candidate is paired with the baseline that already shipped. The CI gate fails the change when examples that passed now fail, and when the mean score drops past the configured tolerance and the paired bootstrap interval excludes zero. The same request is cached by content hash, so a repeated suite does not pay again for a generation it already stored. The public demo replays those saved runs and rejects writes, so a visitor can open a caught failure without a model API key.
+
+The working domain is automotive question answering, a stand-in for a support bot that has to stay on a manual. The October 18, 2026 measurement uses the offline mock provider and the fixture set. It shows the harness catching a known-bad prompt. A live-model ranking, and a judge-versus-human reliability number, need studies this repository has not run.
+
+## LinkedIn post
+
+Copy the text below into LinkedIn. The first two lines are the fold. Every figure is from the October 18, 2026 mock-provider demo and the GitHub Actions gate run recorded in [docs/phase-7-portfolio.md](docs/phase-7-portfolio.md).
+
+```text
+A prompt change that looks fine in chat is how a wrong answer reaches a customer.
+
+I built EvalBench, a regression harness for LLM prompts. It pins the questions, the prompt, and the scorer, stores every example, and fails CI when answers that used to pass now fail.
+
+The demo case is automotive QA: a grounded reply a product chatbot owes a customer. Drop the question line from the prompt. On the offline mock provider, three development answers go from passing to failing, and the mean score moves from 1.000 to 0.000. GitHub Actions records the same three failures (auto-001, auto-002, auto-003) and a mean delta of -1.000. The read-only demo shows that comparison with no API key. Generation cost on the seed was $0.000000.
+
+The release gate scores with those deterministic checks. A model judge joins the gate only with a passport: holdout agreement with people, stable repeats, order stability, and a verbosity check. The human side of that passport is still open. An October 13, 2026 session stored three assisted holdout labels. The workbench minimum is ten.
+
+The fixtures show the harness on a small offline set. A live-model leaderboard would be a larger study, and this repository does not report one.
+
+https://github.com/Sujay1709/evalbench-ai
+
+#LLMOps #MLEngineering #Evaluation
+```
 
 EvalBench turns datasets, prompt versions, provider settings, and scoring rules into traceable evaluation runs. It stores per-example evidence, reuses identical responses through content-addressed caching, and makes regressions inspectable from a Flask dashboard.
 
