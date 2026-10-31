@@ -36,6 +36,42 @@ def test_empty_comparison_page(client):
     assert b"No completed runs yet" in response.data
 
 
+def test_compare_opens_the_seeded_benchmark_pair(client):
+    from evalbench.demo import seed_demo
+    from evalbench.providers import MockProvider
+
+    seed_demo(MockProvider())
+    response = client.get("/compare")
+
+    assert response.status_code == 302
+    assert "change=regressed" in response.headers["Location"]
+    followed = client.get("/compare", follow_redirects=True)
+    assert followed.status_code == 200
+    assert b"auto-001" in followed.data
+    assert b"Cannot compare these runs" not in followed.data
+    assert b'data-benchmark="' in followed.data
+
+
+def test_mismatched_benchmarks_offer_a_run_that_can_be_compared(client):
+    from evalbench.demo import featured_regression, seed_demo
+    from evalbench.providers import MockProvider
+
+    seed_demo(MockProvider())
+    baseline, known_bad = featured_regression()
+    hotpot = db.session.execute(
+        db.select(EvaluationRun).where(EvaluationRun.dataset_name == "hotpot_qa")
+    ).scalar_one()
+
+    response = client.get(
+        "/compare", query_string={"baseline": baseline.id, "candidate": hotpot.id}
+    )
+
+    assert response.status_code == 400
+    assert b"different dataset_name" in response.data
+    assert known_bad.id.encode() in response.data
+    assert f"candidate={known_bad.id}".encode() in response.data
+
+
 def test_dashboard_reports_evidence_and_remains_read_only(client, app, pair):
     app.config["DEMO_READ_ONLY"] = True
     response = client.get("/compare", query_string=query(pair))
