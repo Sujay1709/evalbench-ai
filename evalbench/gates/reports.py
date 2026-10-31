@@ -86,8 +86,11 @@ def report_dict(report: GateReport) -> dict[str, Any]:
     }
 
 
-def json_report(report: GateReport) -> str:
-    return json.dumps(report_dict(report), indent=2) + "\n"
+def json_report(report: GateReport, branch: dict[str, str] | None = None) -> str:
+    payload = report_dict(report)
+    if branch:
+        payload["branch"] = branch
+    return json.dumps(payload, indent=2) + "\n"
 
 
 def junit_report(report: GateReport) -> str:
@@ -166,10 +169,19 @@ def github_annotations(report: GateReport) -> list[str]:
     return lines
 
 
-def step_summary(report: GateReport) -> str:
+def step_summary(report: GateReport, branch: dict[str, str] | None = None) -> str:
     lines = [
         f"## EvalBench regression gate: {report.status.upper()}",
         "",
+    ]
+    if branch and branch.get("base_ref") and branch.get("head_ref"):
+        sha = branch.get("head_sha", "")
+        short = sha[:7] if sha else "unknown"
+        lines.append(
+            f"Branch `{branch['head_ref']}` compared with `{branch['base_ref']}` at `{short}`."
+        )
+        lines.append("")
+    lines += [
         f"Tier `{report.tier}`, provider `{report.provider}`, policy "
         f"`{report.policy.content_hash[:12]}`.",
         "",
