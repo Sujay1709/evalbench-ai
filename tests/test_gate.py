@@ -354,3 +354,12 @@ def test_step_summary_lists_each_benchmark_and_problem():
     assert "| alpha | failed | -0.050 | 1 |" in summary
     assert "| beta | error | n/a | n/a |" in summary
     assert "**alpha:** 1 example(s) passed in the baseline" in summary
+
+
+def test_step_summary_names_the_pull_request_branches():
+    summary = step_summary(
+        _report(),
+        branch={"base_ref": "main", "head_ref": "prompt-v2", "head_sha": "abcdef1234567890"},
+    )
+
+    assert "Branch `prompt-v2` compared with `main` at `abcdef1`." in summary

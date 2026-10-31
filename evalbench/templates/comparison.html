@@ -11,14 +11,19 @@
   <div><label for="{{ field }}">{{ field | title }} run</label>
     <select id="{{ field }}" name="{{ field }}" required aria-describedby="selection-help">
       <option value="">Select a completed run</option>
-      {% for run in runs %}<option value="{{ run.id }}" {% if request.args.get(field) == run.id %}selected{% endif %}>{{ run.id[:8] }} · {{ run.dataset_name }} / {{ run.dataset_split }} · {{ run.prompt_id }} {{ run.prompt_version }} · {{ run.provider }}</option>{% endfor %}
+      {% for run in runs %}<option value="{{ run.id }}" data-benchmark="{{ run.dataset_name }}|{{ run.dataset_version }}|{{ run.dataset_hash }}|{{ run.dataset_split }}" {% if request.args.get(field) == run.id %}selected{% endif %}>{{ run.id[:8] }} · {{ run.dataset_name }} / {{ run.dataset_split }} · {{ run.prompt_id }} {{ run.prompt_version }} · {{ run.provider }}</option>{% endfor %}
     </select>
   </div>
   {% endfor %}
   <button type="submit">Compare runs</button>
-  <p id="selection-help">Choose two distinct completed runs with matching dataset versions and splits.</p>
+  <p id="selection-help">Choose two distinct completed runs from the same benchmark and split. The candidate list follows the baseline.</p>
 </form>
-{% if error %}<div class="failure-summary" role="alert"><h2>Cannot compare these runs</h2><p>{{ error }}</p></div>{% endif %}
+{% if error %}<div class="failure-summary" role="alert"><h2>Cannot compare these runs</h2><p>{{ error }}</p>
+  {% if compatible %}
+  <p>These runs share {{ baseline.dataset_name }} / {{ baseline.dataset_split }} and can be compared:</p>
+  <ul>{% for run in compatible %}<li><a href="{{ url_for('web.comparison', baseline=baseline.id, candidate=run.id) }}">{{ run.id[:8] }} · {{ run.prompt_id }} {{ run.prompt_version }} · {{ run.provider }}</a></li>{% endfor %}</ul>
+  {% endif %}
+</div>{% endif %}
 {% if not runs %}<div class="empty-state"><h2>No completed runs yet</h2><p>Run two offline evaluations from the CLI, then return here.</p><code>python -m evalbench.cli run --split development</code></div>{% endif %}
 {% if report %}
 <section class="comparison-section" aria-label="Paired summary">
@@ -84,3 +89,4 @@
 </section>
 {% endif %}
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/compare.js') }}" defer></script>{% endblock %}

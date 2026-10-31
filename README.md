@@ -387,6 +387,22 @@ flask --app evalbench:create_app run --debug
 
 Open [http://localhost:5000](http://localhost:5000) to inspect the run dashboard.
 
+The deployed read-only demo is <https://evalbench-demo.onrender.com>. The caught
+automotive regression is the page to send a recruiter:
+
+<https://evalbench-demo.onrender.com/compare?baseline=ef236041-dab5-46eb-bb30-050af15fbf45&candidate=5e876498-a724-46f1-9940-f3061c443a63&change=regressed>
+
+### Score a repository on a pull request
+
+The public demo does not clone a visitor's repository or accept an upload. A
+repository is scored by checking it out in GitHub Actions. Copy
+[`.github/workflows/regression-gate.yml`](.github/workflows/regression-gate.yml)
+into that repository with its datasets, prompts, and committed baselines. On a
+pull request the gate compares the head branch with the baseline recorded from
+the base branch and writes the dataset scores into the job summary and
+`reports/gate.json`. The three ways to take that evaluation further are in
+[docs/evaluating-further.md](docs/evaluating-further.md).
+
 ### Reproduce the public demo and smoke suite
 
 The public demo is the same Flask app in read-only mode, seeded offline with the

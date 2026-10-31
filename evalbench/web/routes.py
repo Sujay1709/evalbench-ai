@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from flask import Blueprint, abort, render_template, request
+from flask import Blueprint, abort, redirect, render_template, request, url_for
 
 from evalbench.comparisons import ComparisonError, compare_runs, paired_bootstrap
 from evalbench.comparisons.efficiency import build_leaderboards, summarize_efficiency
@@ -63,6 +63,13 @@ def _comparison_runs():
     return baseline, candidate
 
 
+def _same_benchmark(baseline: EvaluationRun, candidate: EvaluationRun) -> bool:
+    return all(
+        getattr(baseline, field) == getattr(candidate, field)
+        for field in ("dataset_name", "dataset_version", "dataset_hash", "dataset_split")
+    )
+
+
 @web_blueprint.get("/compare")
 def comparison():
     runs = list(
@@ -82,6 +89,17 @@ def comparison():
         segment_error=None,
     )
     if not request.args.get("baseline") and not request.args.get("candidate"):
+        # The dock opens a pair that can be scored. A fresh visit otherwise lands
+        # on two unrelated benchmarks and the comparison never runs.
+        if pair := featured_regression():
+            return redirect(
+                url_for(
+                    "web.comparison",
+                    baseline=pair[0].id,
+                    candidate=pair[1].id,
+                    change="regressed",
+                )
+            )
         return render_template("comparison.html", **context)
     if not request.args.get("baseline") or not request.args.get("candidate"):
         context["error"] = "Select both a baseline and a candidate run."
@@ -90,7 +108,14 @@ def comparison():
     try:
         report = compare_runs(baseline, candidate)
     except ComparisonError as exc:
-        context["error"] = str(exc)
+        context.update(
+            error=str(exc),
+            baseline=baseline,
+            candidate=candidate,
+            compatible=[
+                run for run in runs if run.id != baseline.id and _same_benchmark(baseline, run)
+            ],
+        )
         return render_template("comparison.html", **context), 400
     context.update(report=report, baseline=baseline, candidate=candidate)
     context["efficiencies"] = (summarize_efficiency(baseline), summarize_efficiency(candidate))

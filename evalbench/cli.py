@@ -250,6 +250,19 @@ def _print_gate_report(report: GateReport) -> None:
     console.print(f"[bold]Gate {report.status.upper()}[/bold] (exit {report.exit_code})")
 
 
+def _pull_request_branch() -> dict[str, str] | None:
+    """Name the pull request when GitHub Actions checked out the head branch."""
+    base = os.environ.get("GITHUB_BASE_REF", "").strip()
+    head = os.environ.get("GITHUB_HEAD_REF", "").strip()
+    if not base or not head:
+        return None
+    return {
+        "base_ref": base,
+        "head_ref": head,
+        "head_sha": os.environ.get("GITHUB_SHA", "").strip(),
+    }
+
+
 @cli.command("gate")
 def gate(
     tier: Annotated[str, typer.Option("--tier", help="Suite tier from the gate config.")] = "smoke",
@@ -288,7 +301,11 @@ def gate(
             raise typer.Exit(code=2) from exc
 
     _print_gate_report(report)
-    for path, render in ((json_path, json_report), (junit_path, junit_report)):
+    branch = _pull_request_branch()
+    for path, render in (
+        (json_path, lambda item: json_report(item, branch=branch)),
+        (junit_path, junit_report),
+    ):
         if path is not None:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(render(report))
@@ -301,7 +318,7 @@ def gate(
         summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
         if summary_path:
             with open(summary_path, "a", encoding="utf-8") as summary:
-                summary.write(step_summary(report))
+                summary.write(step_summary(report, branch=branch))
     raise typer.Exit(code=report.exit_code)
 
 

@@ -104,6 +104,33 @@ def test_known_bad_prompt_fails_only_its_benchmark_and_saves_reports(env, tmp_pa
     assert (junit.get("failures"), junit.get("errors")) == ("5", "0")
 
 
+def test_pull_request_report_records_both_branches(env, tmp_path):
+    summary_path = tmp_path / "summary.md"
+    json_path = tmp_path / "gate.json"
+    actions_env = {
+        **env,
+        "GITHUB_ACTIONS": "true",
+        "GITHUB_STEP_SUMMARY": str(summary_path),
+        "GITHUB_BASE_REF": "main",
+        "GITHUB_HEAD_REF": "prompt-v2",
+        "GITHUB_SHA": "abcdef1234567890",
+    }
+    result = runner.invoke(
+        cli,
+        ["gate", "--candidate-prompt", KNOWN_BAD_OVERRIDE, "--json-report", str(json_path)],
+        env=actions_env,
+    )
+
+    assert result.exit_code == 1
+    report = json.loads(json_path.read_text())
+    assert report["branch"] == {
+        "base_ref": "main",
+        "head_ref": "prompt-v2",
+        "head_sha": "abcdef1234567890",
+    }
+    assert "Branch `prompt-v2` compared with `main` at `abcdef1`." in summary_path.read_text()
+
+
 def test_github_actions_mode_emits_annotations_and_a_step_summary(env, tmp_path):
     summary_path = tmp_path / "summary.md"
     actions_env = {**env, "GITHUB_ACTIONS": "true", "GITHUB_STEP_SUMMARY": str(summary_path)}
